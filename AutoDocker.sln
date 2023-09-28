@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34031.279
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoDocker", "AutoDocker.csproj", "{4D0153C0-B4BA-466F-9ACC-CA51561BF2A4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AutoDocker", "AutoDocker\AutoDocker.csproj", "{98A70CB8-F6E3-4F7D-B8E7-2FC6136B8BBB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,10 +11,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{4D0153C0-B4BA-466F-9ACC-CA51561BF2A4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4D0153C0-B4BA-466F-9ACC-CA51561BF2A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4D0153C0-B4BA-466F-9ACC-CA51561BF2A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4D0153C0-B4BA-466F-9ACC-CA51561BF2A4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{98A70CB8-F6E3-4F7D-B8E7-2FC6136B8BBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{98A70CB8-F6E3-4F7D-B8E7-2FC6136B8BBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{98A70CB8-F6E3-4F7D-B8E7-2FC6136B8BBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{98A70CB8-F6E3-4F7D-B8E7-2FC6136B8BBB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
