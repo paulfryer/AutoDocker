@@ -108,7 +108,14 @@ namespace AutoDocker
 
                 var dockerSource = GetDockerSource(project);
                 Console.Write(dockerSource);
-                Console.ReadKey();
+
+
+
+                File.CreateText($"{project.ProjectName}/Dockerfile");
+                
+                
+                
+                //Console.ReadKey();
 
                 // TODO: Consider sending these in as command line args.
                 var x86LinuxImageName = $"{project.ProjectName}-Linux-X86";
