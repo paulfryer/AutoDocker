@@ -25,11 +25,11 @@ namespace AutoDocker
             {
                 var ecr = new Amazon.CDK.AWS.ECR.Repository(this, projectName, new Amazon.CDK.AWS.ECR.RepositoryProps
                 {
-                    RepositoryName = $"{solutionName.ToLower()}/{projectName.ToLower()}"
+                    RepositoryName = $"{solutionName.ToLower()}/{projectName.ToLower()}",
+                    RemovalPolicy = RemovalPolicy.DESTROY
                 }) ;
 
             }
-
 
 
 
@@ -37,19 +37,34 @@ namespace AutoDocker
                 new PipelineProjectProps
                 {
 
-                    BuildSpec = BuildSpec.FromSourceFilename("buildspec.yml"),
+                    BuildSpec = BuildSpec.FromObject(new Dictionary<string, object>
+                    {
+                        { "version", "0.2" },
+                        {"phases", new Dictionary<string, object>
+                        {
+                            {"build", new Dictionary<string, object>
+                            {
+                                {"commands", new string[]{
+                                    "ls",
+                                    "unzip source.zip",
+                                    "ls"
+                                }
+                            } }
+                        } }
+                        } 
+                    }),
+                    //BuildSpec = BuildSpec.FromSourceFilename("buildspec.yml"),
                     Environment = new BuildEnvironment
                     {
                         ComputeType = ComputeType.SMALL,
                         Privileged = true,
                         BuildImage = LinuxBuildImage.FromCodeBuildImageId("aws/codebuild/standard:7.0")
                     },
-                    
-                });
 
+                })
+            {
 
-            
-
+            };
             var codeCommit = new Repository(this, "myrepo", new RepositoryProps
             {
                 RepositoryName = "myreponame",
