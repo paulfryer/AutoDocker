@@ -8,3 +8,5 @@
 /AutoDocker/.vs/AutoDocker
 /AutoDocker/.vs/ProjectEvaluation
 /AutoDocker/bin/Debug/net7.0
+/Infrastructure/bin/Debug/net6.0
+/Infrastructure/obj
