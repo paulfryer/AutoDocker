@@ -22,9 +22,13 @@
     <PackageReference Include="Amazon.CDK.AWS.CodeCommit" Version="1.204.0" />
     <PackageReference Include="Amazon.CDK.AWS.CodePipeline" Version="1.204.0" />
     <PackageReference Include="Amazon.CDK.AWS.CodePipeline.Actions" Version="1.204.0" />
+    <PackageReference Include="Amazon.CDK.AWS.ECR" Version="1.204.0" />
+    <PackageReference Include="Amazon.CDK.AWS.IAM" Version="1.204.0" />
     <PackageReference Include="AWSSDK.CloudFormation" Version="3.7.203.42" />
     <PackageReference Include="AWSSDK.CodeCommit" Version="3.7.201.27" />
+    <PackageReference Include="AWSSDK.IdentityManagement" Version="3.7.200.48" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.205.3" />
+    <PackageReference Include="LibGit2Sharp" Version="0.27.2" />
   </ItemGroup>
 
 </Project>

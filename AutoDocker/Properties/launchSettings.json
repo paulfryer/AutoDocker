@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AutoDocker": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\Administrator\\source\\repos\\OptionsArb"
+    }
+  }
+}

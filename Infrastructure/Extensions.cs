@@ -22,7 +22,7 @@ namespace AutoDocker
             {
                 StackName = stackArtifact.StackName,
                 TemplateBody = cloudFormationJson,
-                Capabilities = new List<string> { "CAPABILITY_IAM" }
+                Capabilities = new List<string> { "CAPABILITY_IAM", "CAPABILITY_NAMED_IAM" }
              
             });
 

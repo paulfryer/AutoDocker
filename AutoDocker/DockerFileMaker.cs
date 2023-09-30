@@ -114,11 +114,14 @@ namespace AutoDocker
                 Console.WriteLine($"Hash: {hash}");
 
                 var dockerSource = GetDockerSource(project);
-                Console.Write(dockerSource);
+                //Console.Write(dockerSource);
 
 
+                using (var writer  = new StreamWriter(project.DockerFileLocation))
+                    writer.Write(dockerSource);
+                
+                
 
-                File.CreateText($"{project.ProjectName}/Dockerfile");
                 
                 
                 
@@ -252,6 +255,10 @@ ENTRYPOINT [""dotnet"", ""{projectName}.dll""]".Replace("{projectName}", project
         public List<Project> ReferencedProjects = new();
 
         public DirectoryInfo SolutionDirectory { get; set; }
+
+        public string ProjectDirectory => $"{SolutionDirectory}\\{ProjectName}";
+
+        public string DockerFileLocation => $"{ProjectDirectory}\\Dockerfile";
 
 
 

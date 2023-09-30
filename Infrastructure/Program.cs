@@ -1,13 +1,21 @@
 ﻿
 
 
+using Amazon;
 using Amazon.Auth.AccessControlPolicy.ActionIdentifiers;
 using Amazon.CDK;
+using Amazon.CDK.AWS.CodeCommit;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.S3.Assets;
 using Amazon.CDK.CloudAssembly.Schema;
+using Amazon.CodeCommit;
+using Amazon.IdentityManagement.Model;
+using Amazon.Runtime.CredentialManagement;
 using Amazon.S3.Model;
+using LibGit2Sharp;
+using System.IO.Compression;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace AutoDocker
@@ -18,17 +26,33 @@ namespace AutoDocker
         public static async Task Main(string[] args)
         {
 
+            var repoName = "myreponame";
+
+            var solutionName = "OptionsArb";
+            var projectNames = new List<string>
+            {
+                "QuotePump",
+                "ArbitragePump",
+                "ContractIndexer"
+            };
+
 
             var app = new App();
-            var stack = new AutoDockerBuildStack(app, "myautodockerapp");
+            var stack = new AutoDockerBuildStack(solutionName, projectNames, app, "myautodockerapp");
                
-            var stackId = await app.DeployAsync();
-            Thread.Sleep(10000);
+          var stackId = await app.DeployAsync();
+           Thread.Sleep(10000);
+
+
+    
+
+
+
 
             var cloudFormation = new Amazon.CloudFormation.AmazonCloudFormationClient();
             var codeCommit = new Amazon.CodeCommit.AmazonCodeCommitClient();
             var s3 = new Amazon.S3.AmazonS3Client();
-   
+            var iam = new Amazon.IdentityManagement.AmazonIdentityManagementServiceClient();
 
             var resources = await cloudFormation.DescribeStackResourcesAsync(new Amazon.CloudFormation.Model.DescribeStackResourcesRequest
             {
@@ -38,27 +62,143 @@ namespace AutoDocker
             var codeCommitResource = resources.StackResources.Single(r => r.ResourceType == "AWS::CodeCommit::Repository");
             var bucketResource = resources.StackResources.Single(r => r.ResourceType == "AWS::S3::Bucket");
 
-            var sb = new StringBuilder();
-            sb.AppendLine("Source code...");
 
 
-            /*
+            var userName = "temp-git-user";// iam.GetUserAsync().Result.User.UserName;
+
+            
+   
+
+            var region = codeCommit.Config.RegionEndpoint.SystemName;
+
+            var soluitonDirectory = "C:\\Users\\Administrator\\source\\repos\\OptionsArb";
+
+            var tempFolderName = "temp-source";
+
+
+            // if (Directory.Exists(tempFolderName))
+            //    Directory.Delete(tempFolderName, true);
+
+
+             var tempSource = Directory.CreateDirectory("temp-source");
+            var localRepoUrl =  tempSource.FullName;
+
+            
+           
+
+            var remoteRepoUrl = $"https://git-codecommit.{region}.amazonaws.com/v1/repos/{repoName}";
+            
+
+
+
+
+            
+
+            CopyDirectory(soluitonDirectory, localRepoUrl, codeCommit, null);
+
+            ZipFile.CreateFromDirectory("temp-source", "source.zip");
+
+            FileStream fileStream = File.OpenRead("source.zip");
+            MemoryStream memoryStream = new MemoryStream();
+            fileStream.CopyTo(memoryStream);
+            memoryStream.Seek(0, SeekOrigin.Begin);
+
+
             var putResp = await codeCommit.PutFileAsync(new Amazon.CodeCommit.Model.PutFileRequest
             {
                 RepositoryName = "myreponame",
                 BranchName = "master",
-                CommitMessage = "First checkin.",
-                FileContent = new MemoryStream(Encoding.UTF8.GetBytes("Source code..")),
-                FilePath = "initail.txt",
+                CommitMessage = "Checking in source code with generated Dockerfiles",
+                FileContent = memoryStream,
+                FilePath = "source.zip",
+            });
+
+            memoryStream.Dispose();
+            fileStream.Dispose();
+
+
+
+
+            /*
+            var getCredsResp = await iam.ListServiceSpecificCredentialsAsync(new Amazon.IdentityManagement.Model.ListServiceSpecificCredentialsRequest
+            {
+                ServiceName = "codecommit.amazonaws.com",
+                UserName = userName
+            });
+
+
+           
+
+                var c = await iam.CreateServiceSpecificCredentialAsync(new Amazon.IdentityManagement.Model.CreateServiceSpecificCredentialRequest
+                {
+                    ServiceName = "codecommit.amazonaws.com",
+                    UserName = userName
+                });
+
+
+            var repositoryUrl = $"https://{c.ServiceSpecificCredential.ServiceUserName}:{c.ServiceSpecificCredential.ServicePassword}@git-codecommit.{region}.amazonaws.com/v1/repos/{repoName}";
+            LibGit2Sharp.Repository.Clone(repositoryUrl, "temp");
+
+
+
+
+
+
+
+
+            LibGit2Sharp.Repository.Init(localRepoUrl);
+
+
+
+            using (var localRepo = new LibGit2Sharp.Repository(localRepoUrl))
+            {
                 
 
-            });
-            */
+                Commands.Stage(localRepo, "*");
+                var signature = new Signature("autodocker", "autodocker@example.com", DateTimeOffset.Now);
+                var commit = localRepo.Commit("Local copy", signature, signature);
+
+               
+
+                localRepo.Network.Remotes.Add("origin", remoteRepoUrl);
+
+                localRepo.Branches.Update(localRepo.Branches["master"],
+                   b => b.Remote = "origin",
+                   b => b.UpstreamBranch = "refs/heads/master");
+
+
+                var remote = localRepo.Network.Remotes.Single();
+
+                var credentials = new UsernamePasswordCredentials
+                {
+                    Username = c.ServiceSpecificCredential.ServiceUserName,
+                    Password = c.ServiceSpecificCredential.ServicePassword
+                };
+
+                var options = new PushOptions {
+                    CredentialsProvider = (_url, _user, _cred) => credentials
+                };
+     
+
+                //localRepo.Network.Push(remote, @"refs/head/master", options);
+
+                
+
+                localRepo.Network.Push(localRepo.Branches["master"], options);
+                
+            }
 
 
 
 
-            Thread.Sleep(10000);
+
+
+           */
+
+
+
+
+                Thread.Sleep(10000);
 
 
 
@@ -83,9 +223,75 @@ namespace AutoDocker
             
 
         }
+
+
+        static void CopyDirectory(string sourceDir, string destDir, AmazonCodeCommitClient codeCommit, string parentCommitId)
+        {
+            string excludePattern = ".";
+            var folderName = sourceDir.Split('\\').Last();
+            if (folderName.StartsWith(excludePattern) || folderName == "bin" || folderName == "obj")
+                return;
+
+            // Create the destination directory if it doesn't exist
+            if (!Directory.Exists(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            // Copy all files
+            string[] files = Directory.GetFiles(sourceDir);
+            foreach (string file in files)
+            {
+                string fileName = Path.GetFileName(file);
+                string destFile = Path.Combine(destDir, fileName);
+                File.Copy(file, destFile, true);
+
+
+                
+                using (FileStream fileStream = new FileStream(file, FileMode.Open, FileAccess.Read))
+                {
+                    MemoryStream memoryStream = new MemoryStream();
+
+                    // Copy the file's contents to the MemoryStream
+                    fileStream.CopyTo(memoryStream);
+
+                    /*
+                    var result = codeCommit.PutFileAsync(new Amazon.CodeCommit.Model.PutFileRequest
+                    {
+                        ParentCommitId = parentCommitId,
+                        BranchName = "master",
+                        RepositoryName = "myreponame",
+                        Email = "test@test.com",
+                        FilePath = file,
+                        FileContent = memoryStream // new MemoryStream(Encoding.UTF8.GetBytes("Source code.."))
+                    }).Result;
+                    */
+                   // parentCommitId = result.CommitId;
+                }
+                
+
+
+
+
+
+
+
+            }
+
+            // Copy all subdirectories recursively
+            string[] subdirectories = Directory.GetDirectories(sourceDir);
+            foreach (string subdir in subdirectories)
+            {
+                string subdirName = new DirectoryInfo(subdir).Name;
+                string destSubdir = Path.Combine(destDir, subdirName);
+                CopyDirectory(subdir, destSubdir, codeCommit, parentCommitId);
+            }
+        }
     }
 
-    
+ 
+
+
 
 
 
