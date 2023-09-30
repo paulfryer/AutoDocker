@@ -9,6 +9,7 @@ using Amazon.CDK.AWS.CodePipeline;
 using Amazon.CDK.AWS.CodePipeline.Actions;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.S3;
+using Amazon.CDK.AWS.S3.Assets;
 using Amazon.CDK.CloudAssembly.Schema;
 using System.Linq;
 
@@ -36,8 +37,13 @@ namespace AutoDocker
 
             var codeCommit = new Repository(this, "myrepo", new RepositoryProps
             {
-                RepositoryName = "myreponame"
+                RepositoryName = "myreponame",
+                
+                Code = Code.FromZipFile(".", "master"),
+                
             });
+
+          //  codeCommit.RepositoryCloneUrlHttp
 
 
             var artifactBucket = new Bucket(this, "mycodebucket123456", new BucketProps
@@ -45,7 +51,8 @@ namespace AutoDocker
                 //BucketName = "somecodebucketnamehere",
                 
                 Encryption = BucketEncryption.S3_MANAGED,
-                AutoDeleteObjects = true,
+                //AutoDeleteObjects = true,
+                
                 RemovalPolicy = RemovalPolicy.DESTROY,
               
             });
