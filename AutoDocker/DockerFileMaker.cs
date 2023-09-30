@@ -6,6 +6,13 @@ using System.Security.Cryptography;
 
 namespace AutoDocker
 {
+
+
+
+    // TODO: provide functions to make the docker files, then make the 
+
+
+
     public static class DockerFileMaker
 
     {

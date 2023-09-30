@@ -8,12 +8,11 @@ namespace AutoDocker
 {
     public static class Extensions
     {
-        public static async Task DeployAsync(this App app)
+        public static async Task<string> DeployAsync(this App app)
         {
             var cloudAssembly = app.Synth();
 
             var stackArtifact = (CloudFormationStackArtifact)cloudAssembly.Artifacts.Single(a => a is CloudFormationStackArtifact);
-
 
             var cloudFormationJson = File.ReadAllText(stackArtifact.TemplateFullPath);
 
@@ -24,7 +23,10 @@ namespace AutoDocker
                 StackName = stackArtifact.StackName,
                 TemplateBody = cloudFormationJson,
                 Capabilities = new List<string> { "CAPABILITY_IAM" }
+             
             });
+
+            return resp.StackId;
         }
     }
 

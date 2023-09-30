@@ -23,6 +23,8 @@
     <PackageReference Include="Amazon.CDK.AWS.CodePipeline" Version="1.204.0" />
     <PackageReference Include="Amazon.CDK.AWS.CodePipeline.Actions" Version="1.204.0" />
     <PackageReference Include="AWSSDK.CloudFormation" Version="3.7.203.42" />
+    <PackageReference Include="AWSSDK.CodeCommit" Version="3.7.201.27" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.205.3" />
   </ItemGroup>
 
 </Project>

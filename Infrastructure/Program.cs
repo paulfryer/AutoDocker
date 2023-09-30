@@ -3,106 +3,15 @@
 
 using Amazon.Auth.AccessControlPolicy.ActionIdentifiers;
 using Amazon.CDK;
-using Amazon.CDK.AWS.CodeBuild;
-using Amazon.CDK.AWS.CodeCommit;
-using Amazon.CDK.AWS.CodePipeline;
-using Amazon.CDK.AWS.CodePipeline.Actions;
 using Amazon.CDK.AWS.IAM;
-using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.S3.Assets;
 using Amazon.CDK.CloudAssembly.Schema;
+using Amazon.S3.Model;
 using System.Linq;
+using System.Text;
 
 namespace AutoDocker
 {
-
-    public class AutoDockerBuildStack : Stack
-    {
-        public AutoDockerBuildStack(App scope, string id, IStackProps? props = null) : base(scope, id, props)
-        {
-
-
-            var buildProject = new PipelineProject(this, "myproject",
-                new PipelineProjectProps
-                {
-
-                    BuildSpec = BuildSpec.FromSourceFilename("buildspec.yml"),
-                    Environment = new BuildEnvironment
-                    {
-                        ComputeType = ComputeType.SMALL,
-                        Privileged = true,
-                        BuildImage = LinuxBuildImage.FromCodeBuildImageId("aws/codebuild/standard:7.0")
-                    }
-                });
-
-            var codeCommit = new Repository(this, "myrepo", new RepositoryProps
-            {
-                RepositoryName = "myreponame",
-                
-                Code = Code.FromZipFile(".", "master"),
-                
-            });
-
-          //  codeCommit.RepositoryCloneUrlHttp
-
-
-            var artifactBucket = new Bucket(this, "mycodebucket123456", new BucketProps
-            {
-                //BucketName = "somecodebucketnamehere",
-                
-                Encryption = BucketEncryption.S3_MANAGED,
-                //AutoDeleteObjects = true,
-                
-                RemovalPolicy = RemovalPolicy.DESTROY,
-              
-            });
-
-            var codePipeline = new Pipeline(this, "mycodepipeline", new PipelineProps
-            {
-                ArtifactBucket = artifactBucket,
-                Stages = new[]
-                {
-                    new Amazon.CDK.AWS.CodePipeline.StageProps
-                    {
-                        StageName = "SourceStage",
-                        
-                        Actions = new[]
-                        {
-                            new CodeCommitSourceAction(new CodeCommitSourceActionProps
-                            {
-                                ActionName = "SourceAction",
-                                Repository = codeCommit,
-                                Output = Artifact_.Artifact("SourceArtifact")
-                            })
-                        }
-                    },
-                    new Amazon.CDK.AWS.CodePipeline.StageProps
-                    {
-                        StageName = "BuildStage",
-                        Actions = new[]
-                        {
-                            new CodeBuildAction(new CodeBuildActionProps
-                            {
-                                ActionName = "BuildCodeAction",
-                                Project = buildProject,
-                                Input = Artifact_.Artifact("SourceArtifact")
-                            })
-                        }
-                    }
-                }
-            }) ;
-
-        }
-    }
-
-    public class DeployStage : Stage
-    {
-        public DeployStage(Constructs.Construct scope, string id, Amazon.CDK.IStageProps? props = null) : base(scope, id, props)
-        {
-        }
-
-        
-    }
 
     public static class Program
     {
@@ -110,16 +19,68 @@ namespace AutoDocker
         {
 
 
-
-
-
             var app = new App();
             var stack = new AutoDockerBuildStack(app, "myautodockerapp");
+               
+            var stackId = await app.DeployAsync();
+            Thread.Sleep(10000);
+
+            var cloudFormation = new Amazon.CloudFormation.AmazonCloudFormationClient();
+            var codeCommit = new Amazon.CodeCommit.AmazonCodeCommitClient();
+            var s3 = new Amazon.S3.AmazonS3Client();
+   
+
+            var resources = await cloudFormation.DescribeStackResourcesAsync(new Amazon.CloudFormation.Model.DescribeStackResourcesRequest
+            {
+                StackName = "myautodockerapp"
+            });
+
+            var codeCommitResource = resources.StackResources.Single(r => r.ResourceType == "AWS::CodeCommit::Repository");
+            var bucketResource = resources.StackResources.Single(r => r.ResourceType == "AWS::S3::Bucket");
+
+            var sb = new StringBuilder();
+            sb.AppendLine("Source code...");
 
 
+            /*
+            var putResp = await codeCommit.PutFileAsync(new Amazon.CodeCommit.Model.PutFileRequest
+            {
+                RepositoryName = "myreponame",
+                BranchName = "master",
+                CommitMessage = "First checkin.",
+                FileContent = new MemoryStream(Encoding.UTF8.GetBytes("Source code..")),
+                FilePath = "initail.txt",
+                
+
+            });
+            */
+
+
+
+
+            Thread.Sleep(10000);
+
+
+
+
+            // This is the cleanup part.
+
+            var listResp = await s3.ListObjectsV2Async(new Amazon.S3.Model.ListObjectsV2Request {
+                BucketName = bucketResource.PhysicalResourceId
+            });
+
+            var deleteKeys = listResp.S3Objects.Select(o => new KeyVersion
+            {
+                Key = o.Key
+            }).ToList();
+
+            if (listResp.S3Objects.Any())
+                await s3.DeleteObjectsAsync(new Amazon.S3.Model.DeleteObjectsRequest
+                {
+                    BucketName = bucketResource.PhysicalResourceId,
+                    Objects = deleteKeys
+                });
             
-
-            await app.DeployAsync();
 
         }
     }
