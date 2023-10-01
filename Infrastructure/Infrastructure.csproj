@@ -28,6 +28,7 @@
     <PackageReference Include="AWSSDK.CodeCommit" Version="3.7.201.27" />
     <PackageReference Include="AWSSDK.IdentityManagement" Version="3.7.200.48" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.205.3" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.201.44" />
     <PackageReference Include="LibGit2Sharp" Version="0.27.2" />
   </ItemGroup>
 

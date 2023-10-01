@@ -25,6 +25,12 @@ namespace AutoDocker
     {
         public static async Task Main(string[] args)
         {
+            var cloudFormation = new Amazon.CloudFormation.AmazonCloudFormationClient();
+            var codeCommit = new Amazon.CodeCommit.AmazonCodeCommitClient();
+            var s3 = new Amazon.S3.AmazonS3Client();
+            var iam = new Amazon.IdentityManagement.AmazonIdentityManagementServiceClient();
+            var sts = new Amazon.SecurityToken.AmazonSecurityTokenServiceClient();
+
 
             var repoName = "myreponame";
 
@@ -36,9 +42,12 @@ namespace AutoDocker
                 "ContractIndexer"
             };
 
+            var account = (await sts.GetCallerIdentityAsync(new Amazon.SecurityToken.Model.GetCallerIdentityRequest
+            {})).Account;
+
 
             var app = new App();
-            var stack = new AutoDockerBuildStack(solutionName, projectNames, app, "myautodockerapp");
+            var stack = new AutoDockerBuildStack(account, solutionName, projectNames, app, "myautodockerapp");
                
           var stackId = await app.DeployAsync();
            Thread.Sleep(10000);
@@ -49,10 +58,7 @@ namespace AutoDocker
 
 
 
-            var cloudFormation = new Amazon.CloudFormation.AmazonCloudFormationClient();
-            var codeCommit = new Amazon.CodeCommit.AmazonCodeCommitClient();
-            var s3 = new Amazon.S3.AmazonS3Client();
-            var iam = new Amazon.IdentityManagement.AmazonIdentityManagementServiceClient();
+
 
             var resources = await cloudFormation.DescribeStackResourcesAsync(new Amazon.CloudFormation.Model.DescribeStackResourcesRequest
             {

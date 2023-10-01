@@ -6,12 +6,13 @@ using Amazon.CDK.AWS.CodePipeline.Actions;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.S3.Assets;
+using Amazon.Runtime.Internal.Transform;
 
 namespace AutoDocker
 {
     public class AutoDockerBuildStack : Stack
     {
-        public AutoDockerBuildStack(string solutionName, List<string> projectNames, App scope, string id, IStackProps? props = null) : base(scope, id, props)
+        public AutoDockerBuildStack(string account, string solutionName, List<string> projectNames, App scope, string id, IStackProps? props = null) : base(scope, id, props)
         {
            /*
             var gitUser = new User(this, "temp-git-user", new UserProps
@@ -45,26 +46,29 @@ namespace AutoDocker
                             {"build", new Dictionary<string, object>
                             {
                                 {"commands", new string[]{
-                                    "ls",
                                     "unzip source.zip",
-                                    "ls"
+                                    "cp $PROJECT_NAME/Dockerfile Dockerfile",
+                                    "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com",
+                                    "docker build -t $REPO_NAME .",
+                                    "docker tag $REPO_NAME:latest $ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO_NAME:latest",
+                                    "docker push $ACCOUNT.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO_NAME:latest"
                                 }
                             } }
                         } }
-                        } 
+                        }
                     }),
-                    //BuildSpec = BuildSpec.FromSourceFilename("buildspec.yml"),
                     Environment = new BuildEnvironment
                     {
                         ComputeType = ComputeType.SMALL,
                         Privileged = true,
                         BuildImage = LinuxBuildImage.FromCodeBuildImageId("aws/codebuild/standard:7.0")
                     },
+                    
+                });
 
-                })
-            {
+            buildProject.Role.AddManagedPolicy(ManagedPolicy.FromAwsManagedPolicyName("EC2InstanceProfileForImageBuilderECRContainerBuilds"));
 
-            };
+
             var codeCommit = new Repository(this, "myrepo", new RepositoryProps
             {
                 RepositoryName = "myreponame",
@@ -87,17 +91,44 @@ namespace AutoDocker
 
             });
 
+            var buildStage = new Amazon.CDK.AWS.CodePipeline.StageProps
+            {
+                StageName = "BuildStage",
+            };
+
+            List<IAction> buildStageActions = new List<IAction>();
+            foreach (var project in projectNames)
+            {
+                buildStageActions.Add(
+                    new CodeBuildAction(new CodeBuildActionProps
+                    {
+                        ActionName = $"Build{project}",
+                        Project = buildProject,
+                        Input = Artifact_.Artifact("SourceArtifact"),
+                        EnvironmentVariables = new Dictionary<string, IBuildEnvironmentVariable>
+                                {
+                                    {"ACCOUNT", new BuildEnvironmentVariable{Type = BuildEnvironmentVariableType.PLAINTEXT,
+                                        Value = account} },
+                                    {"REPO_NAME", new BuildEnvironmentVariable{ Type = BuildEnvironmentVariableType.PLAINTEXT,
+                                        Value = $"{solutionName.ToLower()}/{project.ToLower()}" } },
+                                    {"PROJECT_NAME", new BuildEnvironmentVariable{Type = BuildEnvironmentVariableType.PLAINTEXT,
+                                        Value = project } }
+
+                                }
+                    }));
+            }
+            buildStage.Actions = buildStageActions.ToArray();
 
             var codePipeline = new Pipeline(this, "mycodepipeline", new PipelineProps
             {
-                
+
                 ArtifactBucket = artifactBucket,
                 Stages = new[]
                 {
                     new Amazon.CDK.AWS.CodePipeline.StageProps
                     {
                         StageName = "SourceStage",
-                        
+
                         Actions = new[]
                         {
                             new CodeCommitSourceAction(new CodeCommitSourceActionProps
@@ -111,26 +142,16 @@ namespace AutoDocker
                             })
                         }
                     },
-                    new Amazon.CDK.AWS.CodePipeline.StageProps
-                    {
-                        StageName = "BuildStage",
-                        Actions = new[]
-                        {
-                            new CodeBuildAction(new CodeBuildActionProps
-                            {
-                                ActionName = "BuildCodeAction",
-                                Project = buildProject,
-                                Input = Artifact_.Artifact("SourceArtifact")
-                            })
-                        }
-                    }
+                      buildStage
                 }
             });
 
+
+
+            
         }
     }
 
-    
 
 
 
