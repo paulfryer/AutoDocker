@@ -3,6 +3,9 @@ using Amazon.CDK.AWS.CodeBuild;
 using Amazon.CDK.AWS.CodeCommit;
 using Amazon.CDK.AWS.CodePipeline;
 using Amazon.CDK.AWS.CodePipeline.Actions;
+using Amazon.CDK.AWS.EC2;
+using Amazon.CDK.AWS.ECS;
+using Amazon.CDK.AWS.Events.Targets;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.S3.Assets;
@@ -14,23 +17,16 @@ namespace AutoDocker
     {
         public AutoDockerBuildStack(string account, string solutionName, List<string> projectNames, App scope, string id, IStackProps? props = null) : base(scope, id, props)
         {
-           /*
-            var gitUser = new User(this, "temp-git-user", new UserProps
-            {
-                UserName = "temp-git-user"
-            });
-            gitUser.AddManagedPolicy(ManagedPolicy.FromAwsManagedPolicyName("AWSCodeCommitFullAccess"));
-           */
 
-            foreach (var projectName in projectNames)
-            {
-                var ecr = new Amazon.CDK.AWS.ECR.Repository(this, projectName, new Amazon.CDK.AWS.ECR.RepositoryProps
-                {
-                    RepositoryName = $"{solutionName.ToLower()}/{projectName.ToLower()}",
-                    RemovalPolicy = RemovalPolicy.DESTROY
-                }) ;
 
-            }
+
+            /*
+             var gitUser = new User(this, "temp-git-user", new UserProps
+             {
+                 UserName = "temp-git-user"
+             });
+             gitUser.AddManagedPolicy(ManagedPolicy.FromAwsManagedPolicyName("AWSCodeCommitFullAccess"));
+            */
 
 
 
@@ -146,9 +142,66 @@ namespace AutoDocker
                 }
             });
 
+            /*
+            var vpc = new Vpc(this, "vpc", new VpcProps
+            {
+                VpcName = solutionName + "_VPC",
+                Cidr = "8.0.0.0/24"              
+            });
+            */
 
-
+            var cluster = new Cluster(this, "cluster", new ClusterProps
+            {
+                
+                ClusterName = solutionName,
+                EnableFargateCapacityProviders = false,
+                Vpc = Vpc.FromLookup(this, "existingvpc", new VpcLookupOptions
+                {
+                    IsDefault = true,
+                    
+                }),
+                ContainerInsights = false
+            });
             
+
+            foreach (var project in projectNames)
+            {
+                var ecr = new Amazon.CDK.AWS.ECR.Repository(this, project, new Amazon.CDK.AWS.ECR.RepositoryProps
+                {
+                    RepositoryName = $"{solutionName.ToLower()}/{project.ToLower()}",
+                    RemovalPolicy = RemovalPolicy.DESTROY
+                });
+
+                // Create an ECS task definition
+                var taskDefinition = new TaskDefinition(this, $"{project}TaskDefinition", new TaskDefinitionProps
+                {
+                    Family = project,
+                    Compatibility = Compatibility.EXTERNAL,
+                    MemoryMiB = "1024",
+                    Cpu = "1024",
+                    NetworkMode = NetworkMode.BRIDGE
+                });
+
+                // Add a container to the task definition
+                taskDefinition.AddContainer($"{solutionName.ToLower()}/{project.ToLower()}", new ContainerDefinitionProps
+                {
+                    Image = ContainerImage.FromEcrRepository(ecr), // Replace with your container image
+                    MemoryLimitMiB = 1024, // Adjust the memory limit as needed
+                    Cpu = 1024, // Adjust the CPU units as needed
+                });
+
+                var externalService = new ExternalService(this, $"{project}Service", new ExternalServiceProps
+                {
+                    Cluster = cluster,
+                    DesiredCount = 0,
+                    ServiceName = $"{project}Service",
+                    TaskDefinition = taskDefinition,
+                });
+
+            }
+
+
+
         }
     }
 

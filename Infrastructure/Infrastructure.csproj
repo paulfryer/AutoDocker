@@ -8,21 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="buildspec.yml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="buildspec.yml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Amazon.CDK.AWS.CodeBuild" Version="1.204.0" />
     <PackageReference Include="Amazon.CDK.AWS.CodeCommit" Version="1.204.0" />
     <PackageReference Include="Amazon.CDK.AWS.CodePipeline" Version="1.204.0" />
     <PackageReference Include="Amazon.CDK.AWS.CodePipeline.Actions" Version="1.204.0" />
     <PackageReference Include="Amazon.CDK.AWS.ECR" Version="1.204.0" />
+    <PackageReference Include="Amazon.CDK.AWS.ECS" Version="1.204.0" />
     <PackageReference Include="Amazon.CDK.AWS.IAM" Version="1.204.0" />
     <PackageReference Include="AWSSDK.CloudFormation" Version="3.7.203.42" />
     <PackageReference Include="AWSSDK.CodeCommit" Version="3.7.201.27" />

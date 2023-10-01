@@ -42,13 +42,26 @@ namespace AutoDocker
                 "ContractIndexer"
             };
 
-            var account = (await sts.GetCallerIdentityAsync(new Amazon.SecurityToken.Model.GetCallerIdentityRequest
-            {})).Account;
+
+            var identity = await sts.GetCallerIdentityAsync(new Amazon.SecurityToken.Model.GetCallerIdentityRequest { });
+
+            
+
+            var env = new Amazon.CDK.Environment
+            {
+                Account = identity.Account,
+                Region = "us-west-2"
+            };
 
 
             var app = new App();
-            var stack = new AutoDockerBuildStack(account, solutionName, projectNames, app, "myautodockerapp");
+            var stack = new AutoDockerBuildStack(identity.Account, solutionName, projectNames, app, "myautodockerapp", new StackProps
+            {
+                Env = env
+            });
                
+           
+
           var stackId = await app.DeployAsync();
            Thread.Sleep(10000);
 
