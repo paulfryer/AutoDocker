@@ -1,18 +1,44 @@
 ﻿using System;
+using System.Dynamic;
 using System.IO;
 using System.IO.Compression;
+using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
+using Amazon.CodeArtifact;
+using Amazon.CodeArtifact.Model;
+using Amazon.SecurityToken;
+using Amazon.SecurityToken.Model;
 using Newtonsoft.Json;
 
 partial class Program
 {
-    static void Main()
+    static async Task Main()
     {
-
+        //Extract();
         var smithy = BuildSmithy();
 
         GenerateCode(smithy);
 
-      
+
+        var codeArtifact = new AmazonCodeArtifactClient();
+        var sts = new AmazonSecurityTokenServiceClient();
+
+
+        var identity = await sts.GetCallerIdentityAsync(new GetCallerIdentityRequest());
+
+     
+        var publishResult = await codeArtifact.PublishPackageVersionAsync(new PublishPackageVersionRequest
+        {
+            Format = PackageFormat.Nuget,
+            Domain = "services",
+            DomainOwner = identity.Account,
+            Repository = "Services",
+            Namespace = "defaultnamespace",
+            AssetName = "name",
+            PackageVersion = "1.0.0", // TODO: Get the current version then bump it.
+            AssetContent = new MemoryStream(File.ReadAllBytes("/package.nuget"))
+        });
+        
 
 
     }
@@ -81,6 +107,51 @@ partial class Program
                 operation.Input = new Structure(inputShapeId);
                 operation.Output = new Structure(outputShapeId);
 
+            
+                foreach (var inputMember in inputShapObj.members)
+                {
+                    var memberName = (string)inputMember.Name;
+                    var inputMemberTarget = (string)inputMember.First.target;
+
+                    switch (inputMemberTarget)
+                    {
+                        case "smithy.api#String":
+                            operation.Input.Members.Add(memberName, typeof(string));
+                            break;
+                        case "smithy.api#Double":
+                            operation.Input.Members.Add(memberName, typeof(double));
+                            break;
+                        case "smithy.api#Integer":
+                            operation.Input.Members.Add(memberName, typeof(int));
+                            break;
+                        default:
+                            Console.WriteLine($"Unsupported target: {inputMemberTarget}");
+                            break;
+                    }
+                }
+                // TODO: make a single loop that updates both input and output.
+                foreach (var outputMember in outputShapeObj.members)
+                {
+                    var memberName = (string)outputMember.Name;
+                    var memberTarget = (string)outputMember.First.target;
+
+                    switch (memberTarget)
+                    {
+                        case "smithy.api#String":
+                            operation.Output.Members.Add(memberName, typeof(string));
+                            break;
+                        case "smithy.api#Double":
+                            operation.Output.Members.Add(memberName, typeof(double));
+                            break;
+                        case "smithy.api#Integer":
+                            operation.Output.Members.Add(memberName, typeof(int));
+                            break;
+                        default:
+                            Console.WriteLine($"Unsupported target: {memberTarget}");
+                            break;
+                    }
+                }
+
 
                 service.Operations.Add(operation);
 
@@ -98,6 +169,20 @@ partial class Program
 
         return smithy;
 
+    }
+
+    static dynamic GetProperties(dynamic obj)
+    {
+        var properties = new ExpandoObject() as IDictionary<string, object>;
+        if (obj == null)
+            return properties;
+
+        foreach (var propertyInfo in obj.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            properties[propertyInfo.Name] = propertyInfo.GetValue(obj);
+        }
+
+        return properties;
     }
 }
 
@@ -178,6 +263,10 @@ public class Structure : Shape
 
     public Structure(string shapeId) : base(shapeId)
     {
-        
-    }
+
 }
+
+
+    public Dictionary<string, Type> Members = new Dictionary<string, Type>();
+}
+
