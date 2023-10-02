@@ -1,37 +1,30 @@
-﻿
-
-
-using Amazon.CDK;
+﻿using Amazon.CDK;
 using Amazon.CDK.CXAPI;
+using Amazon.CloudFormation;
+using Amazon.CloudFormation.Model;
 
-namespace AutoDocker
+namespace Infrastructure;
+
+public static class Extensions
 {
-    public static class Extensions
+    public static async Task<string> DeployAsync(this App app)
     {
-        public static async Task<string> DeployAsync(this App app)
+        var cloudAssembly = app.Synth();
+
+        var stackArtifact =
+            (CloudFormationStackArtifact)cloudAssembly.Artifacts.Single(a => a is CloudFormationStackArtifact);
+
+        var cloudFormationJson = File.ReadAllText(stackArtifact.TemplateFullPath);
+
+        var cloudFormation = new AmazonCloudFormationClient();
+
+        var resp = await cloudFormation.CreateStackAsync(new CreateStackRequest
         {
-            var cloudAssembly = app.Synth();
+            StackName = stackArtifact.StackName,
+            TemplateBody = cloudFormationJson,
+            Capabilities = new List<string> { "CAPABILITY_IAM", "CAPABILITY_NAMED_IAM" }
+        });
 
-            var stackArtifact = (CloudFormationStackArtifact)cloudAssembly.Artifacts.Single(a => a is CloudFormationStackArtifact);
-
-            var cloudFormationJson = File.ReadAllText(stackArtifact.TemplateFullPath);
-
-            var cloudFormation = new Amazon.CloudFormation.AmazonCloudFormationClient();
-
-            var resp = await cloudFormation.CreateStackAsync(new Amazon.CloudFormation.Model.CreateStackRequest
-            {
-                StackName = stackArtifact.StackName,
-                TemplateBody = cloudFormationJson,
-                Capabilities = new List<string> { "CAPABILITY_IAM", "CAPABILITY_NAMED_IAM" }
-             
-            });
-
-            return resp.StackId;
-        }
+        return resp.StackId;
     }
-
-    
-
-
-
 }
