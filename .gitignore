@@ -12,3 +12,5 @@
 /Infrastructure/obj
 /Smithy/bin/Debug/net6.0
 /Smithy/obj
+/SmithyParser/bin/Debug/net6.0
+/SmithyParser/obj
