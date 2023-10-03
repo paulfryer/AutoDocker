@@ -14,3 +14,6 @@
 /Smithy/obj
 /SmithyParser/bin/Debug/net6.0
 /SmithyParser/obj
+/SmithyParser/bin/Release/net6.0
+/Infrastructure/bin/Release/net6.0
+/AutoDocker/bin/Release/net6.0
