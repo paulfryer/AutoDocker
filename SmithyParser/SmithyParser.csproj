@@ -8,13 +8,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="example-service\**" />
+    <EmbeddedResource Remove="example-service\**" />
+    <None Remove="example-service\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="nuget.exe" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="example-service\build.zip">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Include="nuget.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
