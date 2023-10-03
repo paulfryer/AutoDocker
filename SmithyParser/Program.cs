@@ -9,33 +9,14 @@ internal partial class Program
     private static async Task Main()
     {
         // Set test file if no argument passed from command line.
-        var smithyFileLocation = "C:\\Users\\Administrator\\Projects\\smithy-source\\market.smithy";
+        var smithyFileLocation = "C:\\Users\\Administrator\\Projects\\smithy-source\\commerce.smithy";
+
+
 
         var smithy = ParseSmithyDocument(smithyFileLocation);
-        await smithy.BuildAndPublishPackage("C#");
+        await smithy.BuildAndPublishPackage("C#", new Version(1, 0, 0, 0));
     }
 
-
-    private static void Extract()
-    {
-        var zipFilePath = "example-service/build.zip";
-        var extractPath = "example-service";
-
-        try
-        {
-            // Create the directory if it doesn't exist
-            Directory.CreateDirectory(extractPath);
-
-            // Extract the zip file
-            ZipFile.ExtractToDirectory(zipFilePath, extractPath);
-
-            Console.WriteLine("Zip file extracted successfully.");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-        }
-    }
 
     private static void CallSmithyCLIBuild(string smithyFileLocation)
     {
@@ -84,6 +65,8 @@ internal partial class Program
     {
         var smithySource = File.ReadAllText(smithyFileLocation);
 
+
+
         // Build it here with CLI..
 
         CallSmithyCLIBuild(smithyFileLocation);
@@ -108,6 +91,8 @@ internal partial class Program
             Version = m.smithy
         };
 
+        var templateFileName = smithyFileLocation.Split('\\').Last();
+        smithy.SetName(templateFileName);
 
         foreach (var serviceShapeId in info.ServiceShapeIds)
         {
@@ -131,7 +116,7 @@ internal partial class Program
                 operation.Input = new Structure(inputShapeId);
                 operation.Output = new Structure(outputShapeId);
 
-
+                if (inputShapObj != null)
                 foreach (var inputMember in inputShapObj.members)
                 {
                     var memberName = (string)inputMember.Name;
@@ -155,6 +140,7 @@ internal partial class Program
                 }
 
                 // TODO: make a single loop that updates both input and output.
+                if (outputShapeObj != null)
                 foreach (var outputMember in outputShapeObj.members)
                 {
                     var memberName = (string)outputMember.Name;
@@ -214,6 +200,16 @@ public class SmithyBuildInfo
 
 public class Smithy
 {
+    public void SetName(string smithyTemplateFileName)
+    {
+        Name = smithyTemplateFileName.Replace(".smithy", string.Empty);
+    }
+
+    public string Namespace => Services.First().Namespace;
+
+
+    public string Name { get; set; }
+
     public List<Service> Services = new();
     public string Version { get; set; }
 }

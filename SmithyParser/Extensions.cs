@@ -1,16 +1,18 @@
 ﻿using System.Diagnostics;
+using System.Reflection;
 using Amazon.SecurityToken;
 using Amazon.SecurityToken.Model;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using NuGet.Packaging;
 using NuGet.Versioning;
 
 public static class Extensions
 {
-    public static async Task BuildAndPublishPackage(this Smithy smithy, string language)
+    public static async Task BuildAndPublishPackage(this Smithy smithy, string language, Version version)
     {
-        var packageFileName = smithy.BuildCodePackage(language);
+        var packageFileName = smithy.BuildCodePackage(language, version);
         await smithy.PublishPackage(language, packageFileName);
     }
 
@@ -30,11 +32,9 @@ public static class Extensions
 
 
         var packagePath = $"{packageFileName}"; // Path to your NuGet package
-        var apiKey = "your-api-key"; // Your NuGet API key
-        //string sourceUrl = "https://nuget.example.com/nuget"; // URL of your NuGet server
 
         // Define the NuGet CLI command
-        var nugetCommand = $"nuget push \"{packagePath}\" -Source {nugetUrl} -ApiKey {apiKey}";
+        var nugetCommand = $"nuget push \"{packagePath}\" -Source {nugetUrl}";
 
         // Create a process to run the NuGet CLI command
         var psi = new ProcessStartInfo
@@ -75,38 +75,32 @@ public static class Extensions
         }
     }
 
-    public static string BuildCodePackage(this Smithy smithy, string language)
+    public static string BuildCodePackage(this Smithy smithy, string language, Version newVersion)
     {
         var sourceCode = smithy.GenerateSourceCode(language);
 
         if (language != "C#") throw new NotImplementedException(language);
 
-        // Create a Roslyn syntax tree from the source code
         var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
+        syntaxTree = AddAssemblyVersionAttribute(syntaxTree, newVersion);
 
-        // Create a compilation with the syntax tree and necessary references
-        MetadataReference[] references =
-        {
-            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location)
-        };
+        var compilationOptions = new CSharpCompilationOptions(
+            OutputKind.DynamicallyLinkedLibrary,
+            assemblyIdentityComparer: DesktopAssemblyIdentityComparer.Default);
 
         var compilation = CSharpCompilation.Create(
-            "MyLibrary.dll", // Output assembly name
-            new[] { syntaxTree },
-            references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)); // DLL output
+            assemblyName: smithy.Name, 
+            new[] { syntaxTree },   
+            new[] { MetadataReference.CreateFromFile(typeof(object).GetTypeInfo().Assembly.Location) }, // References
+            compilationOptions);
 
-        // Create a memory stream to store the compiled DLL
         using (var ms = new MemoryStream())
         {
             var result = compilation.Emit(ms);
-
             if (result.Success)
             {
-                // Save the compiled DLL to a file
-                File.WriteAllBytes("MyLibrary.dll", ms.ToArray());
-                Console.WriteLine("MyLibrary.dll has been created.");
+                File.WriteAllBytes($"{smithy.Name}.dll", ms.ToArray());
+                Console.WriteLine($"{smithy.Name}.dll has been created.");
             }
             else
             {
@@ -118,15 +112,10 @@ public static class Extensions
             }
         }
 
-
-        // Now build the Nuget package.
-
         var outputPath = ".";
-        var packageId = "MyPackage";
-        var version = new NuGetVersion("1.0.0");
-        var authors = new HashSet<string> { "Your Name" };
-        var description = "A NuGet package generated programmatically.";
-
+        var packageId = smithy.Name;
+        var version = new NuGetVersion($"{newVersion.Major}.{newVersion.Minor}.{newVersion.Revision}"); // Get this from previous build...
+        var description = $"{smithy.Name} generated Nuget Package.";
 
         var packageBuilder = new PackageBuilder
         {
@@ -135,15 +124,15 @@ public static class Extensions
             Description = description
         };
 
-        packageBuilder.Authors.Add("Your name");
+        packageBuilder.Authors.Add("Build Server");
 
-        // Define package contents
         var packageContents = new List<ManifestFile>
         {
             new()
             {
-                Source = "MyLibrary.dll",
-                Target = $"{Path.GetFileName("MyLibrary.dll")}"
+                Exclude = "False",
+                Source = $"{smithy.Name}.dll",
+                Target = $"{Path.GetFileName($"{smithy.Name}.dll")}"
             }
         };
 
@@ -152,17 +141,36 @@ public static class Extensions
         var packageFileName = $"{packageBuilder.Id}.{packageBuilder.Version}.nupkg";
         var packagePath = Path.Combine(outputPath, packageFileName);
 
-        using (var packageStream = File.Create(packagePath))
-        {
-            packageBuilder.Save(packageStream);
-        }
+        using (var packageStream = File.Create(packagePath)) packageBuilder.Save(packageStream);
 
         Console.WriteLine($"NuGet package saved to: {packagePath}");
 
         return packageFileName;
     }
 
+    // Helper method to add the [assembly: AssemblyVersion] attribute to the syntax tree
+    static SyntaxTree AddAssemblyVersionAttribute(SyntaxTree syntaxTree, Version version)
+    {
+        var root = syntaxTree.GetRoot();
 
+        // Create the [assembly: AssemblyVersion] attribute with the specified version
+        var assemblyVersionAttribute = SyntaxFactory.Attribute(
+            SyntaxFactory.ParseName("System.Reflection.AssemblyVersion"),
+            SyntaxFactory.AttributeArgumentList(
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.AttributeArgument(
+                        SyntaxFactory.LiteralExpression(
+                            SyntaxKind.StringLiteralExpression,
+                            SyntaxFactory.Literal(version.ToString()))))));
+
+        // Add the attribute to the compilation unit
+        var compilationUnit = (CompilationUnitSyntax)root;
+        compilationUnit = compilationUnit.AddAttributeLists(
+            SyntaxFactory.AttributeList(
+                SyntaxFactory.SingletonSeparatedList(assemblyVersionAttribute)));
+
+        return syntaxTree.WithRootAndOptions(compilationUnit, syntaxTree.Options);
+    }
     public static string GenerateSourceCode(this Smithy smithy, string language)
     {
         if (language != "C#") throw new NotImplementedException(language);
