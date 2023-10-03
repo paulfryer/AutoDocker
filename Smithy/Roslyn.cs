@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 
 internal partial class Program
 {
-    private static void GenerateCode(Smithy smithy)
+    private static string GenerateCode(Smithy smithy)
     {
         // Create a compilation unit
         var root = SyntaxFactory.CompilationUnit();
@@ -97,6 +97,8 @@ internal partial class Program
         var generatedCode = root.NormalizeWhitespace().ToFullString();
 
         Console.WriteLine(generatedCode);
+
+        return generatedCode;
     }
 
 

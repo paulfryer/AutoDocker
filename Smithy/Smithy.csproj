@@ -8,8 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="nuget.exe" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="example-service\build.zip">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="nuget.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
@@ -18,10 +25,11 @@
     <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.201.44" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="example-service\" />
+    <PackageReference Include="NuGet.Commands" Version="6.7.0" />
+    <PackageReference Include="NuGet.Common" Version="6.7.0" />
+    <PackageReference Include="NuGet.Packaging" Version="6.7.0" />
+    <PackageReference Include="NuGet.Packaging.Core" Version="6.7.0" />
+    <PackageReference Include="NuGet.Versioning" Version="6.7.0" />
   </ItemGroup>
 
 </Project>
