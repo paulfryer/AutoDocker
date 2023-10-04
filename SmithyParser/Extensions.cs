@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using Amazon.SecurityToken;
 using Amazon.SecurityToken.Model;
@@ -45,7 +46,7 @@ public static class Extensions
         // Create a process to run the NuGet CLI command
         var psi = new ProcessStartInfo
         {
-            FileName = "cmd",
+            FileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "cmd" : "/bin/bash",
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
