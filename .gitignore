@@ -17,3 +17,5 @@
 /SmithyParser/bin/Release/net6.0
 /Infrastructure/bin/Release/net6.0
 /AutoDocker/bin/Release/net6.0
+/Infrastructure/Infrastructure.csproj.user
+/Infrastructure/Properties/PublishProfiles
