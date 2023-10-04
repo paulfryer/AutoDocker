@@ -43,6 +43,9 @@ public static class Extensions
         // Define the NuGet CLI command
         var nugetCommand = $"nuget push \"{packagePath}\" -Source {nugetUrl}";
 
+        Console.WriteLine("About to run the following nuget command:");
+        Console.WriteLine(nugetCommand);
+
         // Create a process to run the NuGet CLI command
         var psi = new ProcessStartInfo
         {
