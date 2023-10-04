@@ -157,6 +157,9 @@ public static class Extensions
 
         packageBuilder.PopulateFiles(".", packageContents);
 
+        // remove invalid characters that show in linux env.
+        packageBuilder.Id = packageBuilder.Id.Replace("./", string.Empty);
+
         var packageFileName = $"{packageBuilder.Id}.{packageBuilder.Version}.nupkg";
         var packagePath = Path.Combine(outputPath, packageFileName);
 
