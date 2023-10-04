@@ -1,11 +1,17 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
+using System.Text;
 using Amazon.SecurityToken;
 using Amazon.SecurityToken.Model;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Emit;
+using Microsoft.CodeAnalysis.Text;
+using NuGet.Frameworks;
 using NuGet.Packaging;
+using NuGet.Packaging.Core;
+using NuGet.Protocol;
 using NuGet.Versioning;
 
 public static class Extensions
@@ -75,47 +81,23 @@ public static class Extensions
         }
     }
 
+    [Obsolete]
     public static string BuildCodePackage(this Smithy smithy, string language, Version newVersion)
     {
         var sourceCode = smithy.GenerateSourceCode(language);
 
         if (language != "C#") throw new NotImplementedException(language);
 
-        var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
-        syntaxTree = AddAssemblyVersionAttribute(syntaxTree, newVersion);
 
-        var compilationOptions = new CSharpCompilationOptions(
-            OutputKind.DynamicallyLinkedLibrary,
-            assemblyIdentityComparer: DesktopAssemblyIdentityComparer.Default);
+        BuildDotNetProject(smithy, sourceCode);
 
-        var compilation = CSharpCompilation.Create(
-            assemblyName: smithy.Name, 
-            new[] { syntaxTree },   
-            new[] { MetadataReference.CreateFromFile(typeof(object).GetTypeInfo().Assembly.Location) }, // References
-            compilationOptions);
-
-        using (var ms = new MemoryStream())
-        {
-            var result = compilation.Emit(ms);
-            if (result.Success)
-            {
-                File.WriteAllBytes($"{smithy.Name}.dll", ms.ToArray());
-                Console.WriteLine($"{smithy.Name}.dll has been created.");
-            }
-            else
-            {
-                Console.WriteLine("Compilation failed:");
-
-                foreach (var diagnostic in result.Diagnostics.Where(diagnostic =>
-                             diagnostic.IsWarningAsError || diagnostic.Severity == DiagnosticSeverity.Error))
-                    Console.WriteLine(diagnostic);
-            }
-        }
 
         var outputPath = ".";
         var packageId = smithy.Name;
-        var version = new NuGetVersion($"{newVersion.Major}.{newVersion.Minor}.{newVersion.Revision}"); // Get this from previous build...
+        var version = new NuGetVersion($"{newVersion.Major}.{newVersion.Minor}.{newVersion.Build}"); // Get this from previous build...
         var description = $"{smithy.Name} generated Nuget Package.";
+
+
 
         var packageBuilder = new PackageBuilder
         {
@@ -126,13 +108,50 @@ public static class Extensions
 
         packageBuilder.Authors.Add("Build Server");
 
+        // Define package dependencies
+        
+        /*
+        var dependencies = new PackageDependencyGroup(
+            NuGetFramework.Parse("net6.0"),
+            new List<PackageDependency>
+            {
+                new PackageDependency("System.Runtime", VersionRange.Parse("6.0.0"))
+            }
+        );
+        packageBuilder.DependencyGroups.Add(dependencies);
+        */
+
+        // Set Source Link
+       // packageBuilder.packa = new Uri("https://example.com/source-link-repository");
+
+
+        // Set Compiler Flags
+        //packageBuilder.TargetFrameworks.Add(NuGetFramework.Parse("net6.0")); // = "Release";
+      //  packageBuilder.TargetFrameworks.Add(NuGetFramework.AnyFramework);
+        
+
+        // Define package dependencies
+        /*
+        var dependencies = new List<PackageDependencyGroup>
+        {
+            new PackageDependencyGroup(NuGetFramework.AnyFramework,
+                new List<PackageDependency>
+                {
+                    new PackageDependency("System.Private.CoreLib", VersionRange.Parse("6.0.0.0")),
+                   // new PackageDependency("DependencyPackage2", VersionRange.Parse("2.0.0"))
+                })
+        };
+        packageBuilder.DependencyGroups.AddRange(dependencies);
+        */
+
+
         var packageContents = new List<ManifestFile>
         {
             new()
             {
                 Exclude = "False",
-                Source = $"{smithy.Name}.dll",
-                Target = $"{Path.GetFileName($"{smithy.Name}.dll")}"
+                Source = $"dynamic-directory\\bin\\Release\\net6.0\\{smithy.Name}.dll",
+                Target = $"lib\\net6.0\\{smithy.Name}.dll",
             }
         };
 
@@ -141,7 +160,8 @@ public static class Extensions
         var packageFileName = $"{packageBuilder.Id}.{packageBuilder.Version}.nupkg";
         var packagePath = Path.Combine(outputPath, packageFileName);
 
-        using (var packageStream = File.Create(packagePath)) packageBuilder.Save(packageStream);
+        using (var packageStream = File.Create(packagePath)) 
+            packageBuilder.Save(packageStream);
 
         Console.WriteLine($"NuGet package saved to: {packagePath}");
 
@@ -179,16 +199,21 @@ public static class Extensions
         // Create a compilation unit
         var root = SyntaxFactory.CompilationUnit();
 
+
         // Add using statements
         root = root.AddUsings(
             SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System")),
-            SyntaxFactory.UsingDirective(
-                SyntaxFactory.ParseName("System.Threading.Tasks"))); // Add using for System.Threading.Tasks
+            SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Threading.Tasks"))
+            ); // Add using for System.Threading.Tasks
+
+
+        var namespaceDeclaration = SyntaxFactory.NamespaceDeclaration(SyntaxFactory.ParseName(smithy.Namespace));
+
 
         foreach (var service in smithy.Services)
         {
             // Create the namespace
-            var namespaceDeclaration = SyntaxFactory.NamespaceDeclaration(SyntaxFactory.ParseName(service.Namespace));
+           // var namespaceDeclaration = SyntaxFactory.NamespaceDeclaration(SyntaxFactory.ParseName(service.Namespace));
 
             // Create the interface
             var interfaceDeclaration = SyntaxFactory.InterfaceDeclaration($"I{service.Name}Service")
@@ -222,9 +247,12 @@ public static class Extensions
                     .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
 
                 foreach (var inputMember in operation.Input.Members)
+                {
+                    string typeName = "string"; //inputMember.Value.Name;
+
                     inputClass = inputClass.AddMembers(
                         SyntaxFactory.PropertyDeclaration(
-                                SyntaxFactory.ParseTypeName(inputMember.Value.Name), inputMember.Key)
+                                SyntaxFactory.ParseTypeName(typeName), inputMember.Key)
                             .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
                             .WithAccessorList(
                                 SyntaxFactory.AccessorList(
@@ -234,15 +262,22 @@ public static class Extensions
                                             .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)))
                                 )
                             ));
+                }
+
+
+
 
                 // output class
                 var outputClass = SyntaxFactory.ClassDeclaration(operation.Output.Name)
                     .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
 
                 foreach (var outputMember in operation.Output.Members)
+                {
+                    string typeName = "string"; //outputMember.Value.Name;
+
                     outputClass = outputClass.AddMembers(
                         SyntaxFactory.PropertyDeclaration(
-                                SyntaxFactory.ParseTypeName(outputMember.Value.Name), outputMember.Key)
+                                SyntaxFactory.ParseTypeName(typeName), outputMember.Key)
                             .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
                             .WithAccessorList(
                                 SyntaxFactory.AccessorList(
@@ -253,22 +288,103 @@ public static class Extensions
                                 )
                             ));
 
-                // Add the interface and classes to the namespace
-                namespaceDeclaration = namespaceDeclaration.AddMembers(inputClass,
-                    outputClass);
+                }
+
+
+                // Add the classes to the namespace
+                namespaceDeclaration = namespaceDeclaration.AddMembers(inputClass, outputClass);
             }
 
             namespaceDeclaration = namespaceDeclaration.AddMembers(interfaceDeclaration);
-            // Add the namespace to the compilation unit
-            root = root.AddMembers(namespaceDeclaration);
+
         }
 
-
+        // Add the namespace to the compilation unit
+        root = root.AddMembers(namespaceDeclaration);
         // Convert the compilation unit to a string
         var generatedCode = root.NormalizeWhitespace().ToFullString();
 
         Console.WriteLine(generatedCode);
 
         return generatedCode;
+    }
+
+    public static void BuildDotNetProject(Smithy smithy, string sourceCode)
+    {
+        try
+        {
+            if (Directory.Exists("dynamic-build"))
+                Directory.Delete("dynamic-build");
+
+            Directory.CreateDirectory("dynamic-directory");
+
+
+
+
+            // Specify the path to your project directory
+            string projectDirectory = Path.GetFullPath(@"dynamic-directory");
+
+
+
+            // Save the source code to a file
+            string sourceFilePath = Path.Combine(projectDirectory, $"{smithy.Name}.cs");
+            File.WriteAllText(sourceFilePath, sourceCode, Encoding.UTF8);
+
+            // Generate the project file content for a library
+            string projectFileContent = $@"
+                <Project Sdk=""Microsoft.NET.Sdk"">
+                    <PropertyGroup>
+                        <TargetFramework>net6.0</TargetFramework>
+                        <OutputType>Library</OutputType>
+                        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                    </PropertyGroup>
+                    <ItemGroup>
+                        <Compile Include=""{smithy.Name}.cs"" />
+                    </ItemGroup>
+                </Project>
+            ";
+
+            // Save the project file (csproj)
+            string projectFilePath = Path.Combine(projectDirectory, $"{smithy.Name}.csproj");
+            File.WriteAllText(projectFilePath, projectFileContent, Encoding.UTF8);
+
+            // Build the library using dotnet
+            ProcessStartInfo processStartInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"build -c Release \"{projectFilePath}\"",
+                WorkingDirectory = projectDirectory,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            using (Process process = new Process())
+            {
+                process.StartInfo = processStartInfo;
+                process.OutputDataReceived += (sender, e) => Console.WriteLine(e.Data);
+                process.ErrorDataReceived += (sender, e) => Console.WriteLine(e.Data);
+
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                process.WaitForExit();
+
+                if (process.ExitCode == 0)
+                {
+                    Console.WriteLine("Build succeeded.");
+                }
+                else
+                {
+                    Console.WriteLine($"Build failed with exit code {process.ExitCode}.");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
     }
 }

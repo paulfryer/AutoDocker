@@ -2,6 +2,8 @@
 using System.Dynamic;
 using System.IO.Compression;
 using System.Reflection;
+using Amazon.CodeArtifact;
+using Amazon.CodeArtifact.Model;
 using Newtonsoft.Json;
 
 internal partial class Program
@@ -12,9 +14,24 @@ internal partial class Program
         var smithyFileLocation = "C:\\Users\\Administrator\\Projects\\smithy-source\\commerce.smithy";
 
 
+        /*
+        var codeArtifact = new AmazonCodeArtifactClient();
+
+        codeArtifact.GetPackageVersionAssetAsync(new GetPackageVersionAssetRequest
+        {
+            
+        })
+        */
+
+
+        var start = new DateTime(2023, 10, 01);
+
+        var days = Convert.ToInt16(DateTime.UtcNow.Subtract(start).TotalDays);
+        var minutes = Convert.ToInt32(DateTime.UtcNow.Subtract(start).TotalMinutes);
+
 
         var smithy = ParseSmithyDocument(smithyFileLocation);
-        await smithy.BuildAndPublishPackage("C#", new Version(1, 0, 0, 0));
+        await smithy.BuildAndPublishPackage("C#", new Version(days, minutes, 0, 0));
     }
 
 
