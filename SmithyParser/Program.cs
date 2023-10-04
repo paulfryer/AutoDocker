@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Dynamic;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Newtonsoft.Json;
 
 internal class Program
@@ -40,7 +41,7 @@ internal class Program
 
         var psi = new ProcessStartInfo
         {
-            FileName = "cmd",
+            FileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "cmd" : "/bin/bash",
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
