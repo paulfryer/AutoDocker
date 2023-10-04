@@ -1,29 +1,28 @@
 ﻿using System.Diagnostics;
 using System.Dynamic;
-using System.IO.Compression;
 using System.Reflection;
-using Amazon.CodeArtifact;
-using Amazon.CodeArtifact.Model;
 using Newtonsoft.Json;
 
-internal partial class Program
+internal class Program
 {
-    private static async Task Main()
+    public static async Task Main(string[] args)
     {
-        // Set test file if no argument passed from command line.
-        var smithyFileLocation = "C:\\Users\\Administrator\\Projects\\smithy-source\\commerce.smithy";
+        string smithySourceDirectory;
+        if (args.Any())
+            smithySourceDirectory = args[0];
+        else smithySourceDirectory = Environment.GetEnvironmentVariable("SMITHY_SOURCE");
+        
+        if (smithySourceDirectory == null)
+            smithySourceDirectory = ".";
 
+        var smithyFiles = Directory.GetFiles(smithySourceDirectory, "*.smithy");
 
-        /*
-        var codeArtifact = new AmazonCodeArtifactClient();
+        foreach (var smithyFile in smithyFiles)
+            await Generate(smithyFile);
+    }
 
-        codeArtifact.GetPackageVersionAssetAsync(new GetPackageVersionAssetRequest
-        {
-            
-        })
-        */
-
-
+    private static async Task Generate(string smithyFileLocation)
+    {
         var start = new DateTime(2023, 10, 01);
 
         var days = Convert.ToInt16(DateTime.UtcNow.Subtract(start).TotalDays);
@@ -37,19 +36,19 @@ internal partial class Program
 
     private static void CallSmithyCLIBuild(string smithyFileLocation)
     {
-        string smithyCommand = $"smithy build {smithyFileLocation}"; // Replace "your-argument" with the actual argument
+        var smithyCommand = $"smithy build {smithyFileLocation}"; // Replace "your-argument" with the actual argument
 
-        ProcessStartInfo psi = new ProcessStartInfo
+        var psi = new ProcessStartInfo
         {
             FileName = "cmd",
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true,
+            CreateNoWindow = true
         };
 
-        using (Process process = new Process { StartInfo = psi })
+        using (var process = new Process { StartInfo = psi })
         {
             process.Start();
 
@@ -59,8 +58,8 @@ internal partial class Program
             process.StandardInput.Close();
 
             // Read the output and error streams
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
+            var output = process.StandardOutput.ReadToEnd();
+            var error = process.StandardError.ReadToEnd();
 
             process.WaitForExit();
 
@@ -82,12 +81,13 @@ internal partial class Program
     {
         var smithySource = File.ReadAllText(smithyFileLocation);
 
+        if (Directory.Exists("build"))
+            Directory.Delete("build", true);
 
 
         // Build it here with CLI..
 
         CallSmithyCLIBuild(smithyFileLocation);
-
 
 
         var buildJson = File.ReadAllText("build/smithy/source/build-info/smithy-build-info.json");
@@ -134,51 +134,51 @@ internal partial class Program
                 operation.Output = new Structure(outputShapeId);
 
                 if (inputShapObj != null)
-                foreach (var inputMember in inputShapObj.members)
-                {
-                    var memberName = (string)inputMember.Name;
-                    var inputMemberTarget = (string)inputMember.First.target;
-
-                    switch (inputMemberTarget)
+                    foreach (var inputMember in inputShapObj.members)
                     {
-                        case "smithy.api#String":
-                            operation.Input.Members.Add(memberName, typeof(string));
-                            break;
-                        case "smithy.api#Double":
-                            operation.Input.Members.Add(memberName, typeof(double));
-                            break;
-                        case "smithy.api#Integer":
-                            operation.Input.Members.Add(memberName, typeof(int));
-                            break;
-                        default:
-                            Console.WriteLine($"Unsupported target: {inputMemberTarget}");
-                            break;
+                        var memberName = (string)inputMember.Name;
+                        var inputMemberTarget = (string)inputMember.First.target;
+
+                        switch (inputMemberTarget)
+                        {
+                            case "smithy.api#String":
+                                operation.Input.Members.Add(memberName, typeof(string));
+                                break;
+                            case "smithy.api#Double":
+                                operation.Input.Members.Add(memberName, typeof(double));
+                                break;
+                            case "smithy.api#Integer":
+                                operation.Input.Members.Add(memberName, typeof(int));
+                                break;
+                            default:
+                                Console.WriteLine($"Unsupported target: {inputMemberTarget}");
+                                break;
+                        }
                     }
-                }
 
                 // TODO: make a single loop that updates both input and output.
                 if (outputShapeObj != null)
-                foreach (var outputMember in outputShapeObj.members)
-                {
-                    var memberName = (string)outputMember.Name;
-                    var memberTarget = (string)outputMember.First.target;
-
-                    switch (memberTarget)
+                    foreach (var outputMember in outputShapeObj.members)
                     {
-                        case "smithy.api#String":
-                            operation.Output.Members.Add(memberName, typeof(string));
-                            break;
-                        case "smithy.api#Double":
-                            operation.Output.Members.Add(memberName, typeof(double));
-                            break;
-                        case "smithy.api#Integer":
-                            operation.Output.Members.Add(memberName, typeof(int));
-                            break;
-                        default:
-                            Console.WriteLine($"Unsupported target: {memberTarget}");
-                            break;
+                        var memberName = (string)outputMember.Name;
+                        var memberTarget = (string)outputMember.First.target;
+
+                        switch (memberTarget)
+                        {
+                            case "smithy.api#String":
+                                operation.Output.Members.Add(memberName, typeof(string));
+                                break;
+                            case "smithy.api#Double":
+                                operation.Output.Members.Add(memberName, typeof(double));
+                                break;
+                            case "smithy.api#Integer":
+                                operation.Output.Members.Add(memberName, typeof(int));
+                                break;
+                            default:
+                                Console.WriteLine($"Unsupported target: {memberTarget}");
+                                break;
+                        }
                     }
-                }
 
 
                 service.Operations.Add(operation);
@@ -217,18 +217,18 @@ public class SmithyBuildInfo
 
 public class Smithy
 {
-    public void SetName(string smithyTemplateFileName)
-    {
-        Name = smithyTemplateFileName.Replace(".smithy", string.Empty);
-    }
+    public List<Service> Services = new();
 
     public string Namespace => Services.First().Namespace;
 
 
     public string Name { get; set; }
-
-    public List<Service> Services = new();
     public string Version { get; set; }
+
+    public void SetName(string smithyTemplateFileName)
+    {
+        Name = smithyTemplateFileName.Replace(".smithy", string.Empty);
+    }
 }
 
 public abstract class Shape
