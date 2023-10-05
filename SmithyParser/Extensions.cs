@@ -43,7 +43,7 @@ public static class Extensions
         // Define the NuGet CLI command
         var nugetCommand = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? 
             $"nuget push \"{packagePath}\" -Source {nugetUrl}" : 
-            $"/usr/local/bin/nuget.exe push \"{packagePath}\" -Source {nugetUrl}";
+            $"mono /usr/local/bin/nuget.exe push \"{packagePath}\" -Source {nugetUrl}";
 
         Console.WriteLine("About to run the following nuget command:");
         Console.WriteLine(nugetCommand);
@@ -51,7 +51,7 @@ public static class Extensions
         // Create a process to run the NuGet CLI command
         var psi = new ProcessStartInfo
         {
-            FileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "cmd" : "mono",
+            FileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "cmd" : "/bin/bash",
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
