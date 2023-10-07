@@ -129,10 +129,11 @@ internal class Program
                 var outputShapeId = (string)operationObj.output.target;
                 var inputShapObj = m.shapes[inputShapeId];
                 var outputShapeObj = m.shapes[outputShapeId];
-
+                
 
                 operation.Input = new Structure(inputShapeId);
                 operation.Output = new Structure(outputShapeId);
+                
 
                 if (inputShapObj != null)
                     foreach (var inputMember in inputShapObj.members)
