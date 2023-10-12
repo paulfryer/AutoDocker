@@ -153,6 +153,9 @@ internal class Program
                                 operation.Input.Members.Add(memberName, typeof(int));
                                 break;
                             default:
+
+
+
                                 Console.WriteLine($"Unsupported target: {inputMemberTarget}");
                                 break;
                         }
@@ -177,7 +180,49 @@ internal class Program
                                 operation.Output.Members.Add(memberName, typeof(int));
                                 break;
                             default:
-                                Console.WriteLine($"Unsupported target: {memberTarget}");
+
+                                var customType = m.shapes[memberTarget];
+
+                                if (customType != null)
+                                {
+                                    if (customType["traits"] != null && customType["traits"]["smithy.api#streaming"] != null &&  customType["type"] == "union")
+                                    {
+                                        operation.Events = new Dictionary<string, Structure>();
+
+                                        foreach (var member in customType["members"])
+                                        {
+                                            var eventName = (string)member.Name;
+                                            var eventTypeKey = (string)member.First["target"];
+                                            var targetType = m.shapes[eventTypeKey];
+
+                                            var eventStructure = new Structure(eventTypeKey);
+
+                                            foreach (var mem in targetType.members)
+                                            {
+                                                var memName = (string)mem.Name;
+                                                var memTarget = (string)mem.First.target;
+                                                switch (memTarget)
+                                                {
+                                                    case "smithy.api#String":
+                                                        eventStructure.Members.Add(memName, typeof(string));
+                                                        break;
+                                                    case "smithy.api#Double":
+                                                        eventStructure.Members.Add(memName, typeof(double));
+                                                        break;
+                                                    case "smithy.api#Integer":
+                                                        eventStructure.Members.Add(memName, typeof(int));
+                                                        break;
+                                                    default: throw new NotImplementedException();
+                                                }
+                                            }
+
+                                            operation.Events.Add(eventName, eventStructure);
+                                        }
+                                        
+                                    }
+                                }
+                                else 
+                                    Console.WriteLine($"Unsupported target: {memberTarget}");
                                 break;
                         }
                     }
@@ -279,6 +324,8 @@ public class Operation : Shape
 
     public Structure Input { get; set; }
     public Structure Output { get; set; }
+
+    public Dictionary<string, Structure> Events { get; set; }
 }
 
 public class Structure : Shape
