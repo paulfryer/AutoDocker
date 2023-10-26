@@ -16,7 +16,7 @@ internal class Program
         if (smithySourceDirectory == null)
             smithySourceDirectory = ".";
 
-        var smithyFiles = Directory.GetFiles(smithySourceDirectory, "*.smithy");
+        var smithyFiles = Directory.GetFiles(smithySourceDirectory, "*.smithy", SearchOption.AllDirectories);
 
         foreach (var smithyFile in smithyFiles)
             await Generate(smithyFile);
