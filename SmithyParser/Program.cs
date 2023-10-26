@@ -6,12 +6,19 @@ using Newtonsoft.Json;
 
 internal class Program
 {
+
+    static string domain = "services";
+    static string repositoryName = "Services";
+
     public static async Task Main(string[] args)
     {
-        string smithySourceDirectory;
-        if (args.Any())
-            smithySourceDirectory = args[0];
-        else smithySourceDirectory = Environment.GetEnvironmentVariable("SMITHY_SOURCE");
+
+        if (args[0] != null)
+            domain = args[0];
+        if (args[1] != null)
+            repositoryName = args[1];
+        
+        string smithySourceDirectory = Environment.GetEnvironmentVariable("SMITHY_SOURCE");
         
         if (smithySourceDirectory == null)
             smithySourceDirectory = ".";
@@ -31,7 +38,7 @@ internal class Program
 
 
         var smithy = ParseSmithyDocument(smithyFileLocation);
-        await smithy.BuildAndPublishPackage("C#", new Version(days, minutes, 0, 0));
+        await smithy.BuildAndPublishPackage("C#", new Version(days, minutes, 0, 0), domain, repositoryName);
     }
 
 

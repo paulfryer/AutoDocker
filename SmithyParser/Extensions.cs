@@ -17,23 +17,18 @@ using NuGet.Versioning;
 
 public static class Extensions
 {
-    public static async Task BuildAndPublishPackage(this Smithy smithy, string language, Version version)
+    public static async Task BuildAndPublishPackage(this Smithy smithy, string language, Version version, string domain, string repositoryName)
     {
         var packageFileName = smithy.BuildCodePackage(language, version);
-        await smithy.PublishPackage(language, packageFileName);
+        await smithy.PublishPackage(language, packageFileName, domain, repositoryName);
     }
 
-    public static async Task PublishPackage(this Smithy smithy, string language, string packageFileName)
+    public static async Task PublishPackage(this Smithy smithy, string language, string packageFileName, string domain, string repositoryName)
     {
         if (language != "C#") throw new NotImplementedException(language);
 
         var sts = new AmazonSecurityTokenServiceClient();
         var identity = await sts.GetCallerIdentityAsync(new GetCallerIdentityRequest());
-
-
-        var domain = "services";
-        var repositoryName = "Services";
-
         var nugetUrl =
             $"https://{domain}-{identity.Account}.d.codeartifact.{sts.Config.RegionEndpoint.SystemName}.amazonaws.com/nuget/{repositoryName}/v3/index.json";
 
