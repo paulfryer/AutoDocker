@@ -154,6 +154,7 @@ internal class Program
                                 break;
                             case "smithy.api#Timestamp":
                                 operation.Input.Members.Add(memberName, typeof(DateTime));
+                                break;
                             default:
 
                                 Console.WriteLine($"Unsupported target: {inputMemberTarget}");
