@@ -152,9 +152,9 @@ internal class Program
                             case "smithy.api#Integer":
                                 operation.Input.Members.Add(memberName, typeof(int));
                                 break;
+                            case "smithy.api#Timestamp"
+                                operation.Input.Members.Add(memberName, typeof(DateTime));
                             default:
-
-
 
                                 Console.WriteLine($"Unsupported target: {inputMemberTarget}");
                                 break;
