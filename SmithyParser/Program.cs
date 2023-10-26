@@ -152,7 +152,7 @@ internal class Program
                             case "smithy.api#Integer":
                                 operation.Input.Members.Add(memberName, typeof(int));
                                 break;
-                            case "smithy.api#Timestamp"
+                            case "smithy.api#Timestamp":
                                 operation.Input.Members.Add(memberName, typeof(DateTime));
                             default:
 
