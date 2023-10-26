@@ -180,6 +180,9 @@ internal class Program
                             case "smithy.api#Integer":
                                 operation.Output.Members.Add(memberName, typeof(int));
                                 break;
+                            case "smithy.api#Timestamp":
+                                operation.Output.Members.Add(memberName, typeof(DateTime));
+                                break;
                             default:
 
                                 var customType = m.shapes[memberTarget];
