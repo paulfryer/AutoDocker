@@ -117,7 +117,6 @@ internal class Program
         };
 
         var templateFileName = smithyFileLocation.Split('\\').Last();
-        smithy.SetName(templateFileName);
 
         foreach (var serviceShapeId in info.ServiceShapeIds)
         {
@@ -280,13 +279,10 @@ public class Smithy
     public string Namespace => Services.First().Namespace;
 
 
-    public string Name { get; set; }
+    public string Name => Services.First().Namespace + "." + Services.First().Name;
     public string Version { get; set; }
 
-    public void SetName(string smithyTemplateFileName)
-    {
-        Name = Namespace + (Services.Any() ? $".{Services.First().Name}" : string.Empty);
-    }
+
 }
 
 public abstract class Shape
