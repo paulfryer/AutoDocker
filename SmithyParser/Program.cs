@@ -285,7 +285,7 @@ public class Smithy
 
     public void SetName(string smithyTemplateFileName)
     {
-        Name = $"TempName{Guid.NewGuid()}"; //smithyTemplateFileName.Replace(".smithy", string.Empty);
+        Name = Namespace + (Services.Any() ? $".{Services.First().Name}" : string.Empty);
     }
 }
 
