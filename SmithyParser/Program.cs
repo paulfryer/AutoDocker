@@ -2,6 +2,7 @@
 using System.Dynamic;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Newtonsoft.Json;
 
 internal class Program
@@ -12,12 +13,14 @@ internal class Program
 
     public static async Task Main(string[] args)
     {
-
-        if (args[0] != null)
+     
+        if (args.Length > 0)
             domain = args[0];
-        if (args[1] != null)
+        if (args.Length > 1)
             repositoryName = args[1];
-        
+    
+
+
         string smithySourceDirectory = Environment.GetEnvironmentVariable("SMITHY_SOURCE");
         
         if (smithySourceDirectory == null)
@@ -221,6 +224,9 @@ internal class Program
                                                         break;
                                                     case "smithy.api#Integer":
                                                         eventStructure.Members.Add(memName, typeof(int));
+                                                        break;
+                                                    case "smithy.api#Timestamp":
+                                                        eventStructure.Members.Add(memName, typeof(DateTime));
                                                         break;
                                                     default: throw new NotImplementedException();
                                                 }

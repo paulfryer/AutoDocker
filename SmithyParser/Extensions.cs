@@ -252,7 +252,7 @@ public static class Extensions
 
                 foreach (var inputMember in operation.Input.Members)
                 {
-                    string typeName = "string"; //inputMember.Value.Name;
+                    string typeName = inputMember.Value.Name.ToLower();
 
                     inputClass = inputClass.AddMembers(
                         SyntaxFactory.PropertyDeclaration(
@@ -260,10 +260,13 @@ public static class Extensions
                             .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
                             .WithAccessorList(
                                 SyntaxFactory.AccessorList(
-                                    SyntaxFactory.SingletonList(
-                                        SyntaxFactory.AccessorDeclaration(
-                                                SyntaxKind.GetAccessorDeclaration)
-                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)))
+                                    SyntaxFactory.List(new AccessorDeclarationSyntax[]
+                                    {
+                                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
+                                        SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+                                    })
                                 )
                             ));
                 }
@@ -277,7 +280,7 @@ public static class Extensions
 
                 foreach (var outputMember in operation.Output.Members)
                 {
-                    string typeName = "string"; //outputMember.Value.Name;
+                    string typeName = outputMember.Value.Name.ToLower();
 
                     outputClass = outputClass.AddMembers(
                         SyntaxFactory.PropertyDeclaration(
@@ -285,10 +288,13 @@ public static class Extensions
                             .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
                             .WithAccessorList(
                                 SyntaxFactory.AccessorList(
-                                    SyntaxFactory.SingletonList(
-                                        SyntaxFactory.AccessorDeclaration(
-                                                SyntaxKind.GetAccessorDeclaration)
-                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)))
+                                    SyntaxFactory.List(new AccessorDeclarationSyntax[]
+                                    {
+                                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
+                                        SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
+                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+                                    })
                                 )
                             ));
 
