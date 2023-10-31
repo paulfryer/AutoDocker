@@ -252,7 +252,7 @@ public static class Extensions
 
                 foreach (var inputMember in operation.Input.Members)
                 {
-                    var typeName = inputMember.Value.Name.ToLower();
+                    var typeName = inputMember.Value.Name;
 
                     inputClass = inputClass.AddMembers(
                         SyntaxFactory.PropertyDeclaration(
@@ -278,7 +278,7 @@ public static class Extensions
 
                 foreach (var outputMember in operation.Output.Members)
                 {
-                    var typeName = outputMember.Value.Name.ToLower();
+                    var typeName = outputMember.Value.Name;
 
                     outputClass = outputClass.AddMembers(
                         SyntaxFactory.PropertyDeclaration(
