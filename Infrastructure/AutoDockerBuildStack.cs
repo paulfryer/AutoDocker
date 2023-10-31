@@ -155,7 +155,7 @@ public class AutoDockerBuildStack : Stack
         var vpc = new Vpc(this, "vpc", new VpcProps
         {
             VpcName = solutionName + "_VPC",
-            Cidr = "8.0.0.0/24"              
+            Cidr = "8.0.0.0/24"
         });
         */
 

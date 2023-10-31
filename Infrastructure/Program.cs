@@ -119,7 +119,7 @@ public static class Program
         });
 
 
-       
+
 
             var c = await iam.CreateServiceSpecificCredentialAsync(new Amazon.IdentityManagement.Model.CreateServiceSpecificCredentialRequest
             {
@@ -144,13 +144,13 @@ public static class Program
 
         using (var localRepo = new LibGit2Sharp.Repository(localRepoUrl))
         {
-            
+
 
             Commands.Stage(localRepo, "*");
             var signature = new Signature("autodocker", "autodocker@example.com", DateTimeOffset.Now);
             var commit = localRepo.Commit("Local copy", signature, signature);
 
-           
+
 
             localRepo.Network.Remotes.Add("origin", remoteRepoUrl);
 
@@ -170,14 +170,14 @@ public static class Program
             var options = new PushOptions {
                 CredentialsProvider = (_url, _user, _cred) => credentials
             };
- 
+
 
             //localRepo.Network.Push(remote, @"refs/head/master", options);
 
-            
+
 
             localRepo.Network.Push(localRepo.Branches["master"], options);
-            
+
         }
 
 

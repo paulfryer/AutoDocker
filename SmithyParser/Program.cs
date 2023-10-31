@@ -2,27 +2,23 @@
 using System.Dynamic;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Newtonsoft.Json;
 
 internal class Program
 {
-
-    static string domain = "services";
-    static string repositoryName = "Services";
+    private static string domain = "services";
+    private static string repositoryName = "Services";
 
     public static async Task Main(string[] args)
     {
-     
         if (args.Length > 0)
             domain = args[0];
         if (args.Length > 1)
             repositoryName = args[1];
-    
 
 
-        string smithySourceDirectory = Environment.GetEnvironmentVariable("SMITHY_SOURCE");
-        
+        var smithySourceDirectory = Environment.GetEnvironmentVariable("SMITHY_SOURCE");
+
         if (smithySourceDirectory == null)
             smithySourceDirectory = ".";
 
@@ -138,11 +134,11 @@ internal class Program
                 var outputShapeId = (string)operationObj.output.target;
                 var inputShapObj = m.shapes[inputShapeId];
                 var outputShapeObj = m.shapes[outputShapeId];
-                
+
 
                 operation.Input = new Structure(inputShapeId);
                 operation.Output = new Structure(outputShapeId);
-                
+
 
                 if (inputShapObj != null)
                     foreach (var inputMember in inputShapObj.members)
@@ -198,7 +194,9 @@ internal class Program
 
                                 if (customType != null)
                                 {
-                                    if (customType["traits"] != null && customType["traits"]["smithy.api#streaming"] != null &&  customType["type"] == "union")
+                                    if (customType["traits"] != null &&
+                                        customType["traits"]["smithy.api#streaming"] != null &&
+                                        customType["type"] == "union")
                                     {
                                         operation.Events = new Dictionary<string, Structure>();
 
@@ -234,11 +232,13 @@ internal class Program
 
                                             operation.Events.Add(eventName, eventStructure);
                                         }
-                                        
                                     }
                                 }
-                                else 
+                                else
+                                {
                                     Console.WriteLine($"Unsupported target: {memberTarget}");
+                                }
+
                                 break;
                         }
                     }
@@ -287,8 +287,6 @@ public class Smithy
 
     public string Name => Services.First().Namespace + "." + Services.First().Name;
     public string Version { get; set; }
-
-
 }
 
 public abstract class Shape
