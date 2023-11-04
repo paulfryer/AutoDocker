@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Dynamic;
 using System.Reflection;
+using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using Newtonsoft.Json;
 
@@ -123,9 +124,10 @@ internal class Program
 
             var service = new Service(serviceShapeId);
 
-            foreach (var o in s.operations)
+            //foreach (var o in s.operations)
+            foreach (var target in info.OperationShapeIds) //.Select(s => new Operation(s)))
             {
-                var target = (string)o.target;
+                //var target = (string)o.target;
                 var operationObj = m.shapes[target];
 
                 var operation = new Operation(target);
