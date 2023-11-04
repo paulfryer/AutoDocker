@@ -19,3 +19,5 @@
 /AutoDocker/bin/Release/net6.0
 /Infrastructure/Infrastructure.csproj.user
 /Infrastructure/Properties/PublishProfiles
+/PlatformGenerator/bin/Debug/net6.0
+/PlatformGenerator/obj
