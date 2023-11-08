@@ -250,7 +250,7 @@ public static class Extensions
                 var inputClass = SyntaxFactory.ClassDeclaration(operation.Input.Name)
                     .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
 
-                foreach (var inputMember in operation.Input.Members)
+                foreach (var inputMember in operation.Input.MembersOLD)
                 {
                     var typeName = inputMember.Value.Name;
 
@@ -276,7 +276,7 @@ public static class Extensions
                 var outputClass = SyntaxFactory.ClassDeclaration(operation.Output.Name)
                     .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
 
-                foreach (var outputMember in operation.Output.Members)
+                foreach (var outputMember in operation.Output.MembersOLD)
                 {
                     var typeName = outputMember.Value.Name;
 

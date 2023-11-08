@@ -4,6 +4,8 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using Newtonsoft.Json;
+using SmithyParser.Models;
+using SmithyParser.Models.Types;
 
 internal class Program
 {
@@ -105,6 +107,14 @@ internal class Program
         var b = JsonConvert.DeserializeObject<dynamic>(buildJson);
         var m = JsonConvert.DeserializeObject<dynamic>(modelJson);
 
+
+        var smithyModel = new SmithyModel(m);
+
+
+        
+
+
+        /// OLD WAY .....................................
         var info = new SmithyBuildInfo();
 
         foreach (var o in b.operationShapeIds) info.OperationShapeIds.Add((string)o);
@@ -150,17 +160,17 @@ internal class Program
 
                         switch (inputMemberTarget)
                         {
-                            case "smithy.api#String":
-                                operation.Input.Members.Add(memberName, typeof(string));
+                            case "smithy.api#SimpleType":
+                                operation.Input.MembersOLD.Add(memberName, typeof(string));
                                 break;
                             case "smithy.api#Double":
-                                operation.Input.Members.Add(memberName, typeof(double));
+                                operation.Input.MembersOLD.Add(memberName, typeof(double));
                                 break;
                             case "smithy.api#Integer":
-                                operation.Input.Members.Add(memberName, typeof(int));
+                                operation.Input.MembersOLD.Add(memberName, typeof(int));
                                 break;
                             case "smithy.api#Timestamp":
-                                operation.Input.Members.Add(memberName, typeof(DateTime));
+                                operation.Input.MembersOLD.Add(memberName, typeof(DateTime));
                                 break;
                             default:
 
@@ -178,17 +188,17 @@ internal class Program
 
                         switch (memberTarget)
                         {
-                            case "smithy.api#String":
-                                operation.Output.Members.Add(memberName, typeof(string));
+                            case "smithy.api#SimpleType":
+                                operation.Output.MembersOLD.Add(memberName, typeof(string));
                                 break;
                             case "smithy.api#Double":
-                                operation.Output.Members.Add(memberName, typeof(double));
+                                operation.Output.MembersOLD.Add(memberName, typeof(double));
                                 break;
                             case "smithy.api#Integer":
-                                operation.Output.Members.Add(memberName, typeof(int));
+                                operation.Output.MembersOLD.Add(memberName, typeof(int));
                                 break;
                             case "smithy.api#Timestamp":
-                                operation.Output.Members.Add(memberName, typeof(DateTime));
+                                operation.Output.MembersOLD.Add(memberName, typeof(DateTime));
                                 break;
                             default:
 
@@ -216,17 +226,17 @@ internal class Program
                                                 var memTarget = (string)mem.First.target;
                                                 switch (memTarget)
                                                 {
-                                                    case "smithy.api#String":
-                                                        eventStructure.Members.Add(memName, typeof(string));
+                                                    case "smithy.api#SimpleType":
+                                                        eventStructure.MembersOLD.Add(memName, typeof(string));
                                                         break;
                                                     case "smithy.api#Double":
-                                                        eventStructure.Members.Add(memName, typeof(double));
+                                                        eventStructure.MembersOLD.Add(memName, typeof(double));
                                                         break;
                                                     case "smithy.api#Integer":
-                                                        eventStructure.Members.Add(memName, typeof(int));
+                                                        eventStructure.MembersOLD.Add(memName, typeof(int));
                                                         break;
                                                     case "smithy.api#Timestamp":
-                                                        eventStructure.Members.Add(memName, typeof(DateTime));
+                                                        eventStructure.MembersOLD.Add(memName, typeof(DateTime));
                                                         break;
                                                     default: throw new NotImplementedException();
                                                 }
@@ -289,67 +299,4 @@ public class Smithy
 
     public string Name => Services.First().Namespace + "." + Services.First().Name;
     public string Version { get; set; }
-}
-
-public abstract class Shape
-{
-    public Shape()
-    {
-    }
-
-    public Shape(string shapeId)
-    {
-        Namespace = shapeId.Split('#')[0];
-        Name = shapeId.Split('#')[1];
-    }
-
-    public string Namespace { get; set; }
-
-    public string Name { get; set; }
-}
-
-public class Resource : Shape
-{
-}
-
-public class Service : Shape
-{
-    public List<Operation> Operations = new();
-
-    public Service()
-    {
-    }
-
-    public Service(string shapeId) : base(shapeId)
-    {
-    }
-}
-
-public class Operation : Shape
-{
-    public Operation()
-    {
-    }
-
-    public Operation(string shapeId) : base(shapeId)
-    {
-    }
-
-    public Structure Input { get; set; }
-    public Structure Output { get; set; }
-
-    public Dictionary<string, Structure> Events { get; set; }
-}
-
-public class Structure : Shape
-{
-    public Dictionary<string, Type> Members = new();
-
-    public Structure()
-    {
-    }
-
-    public Structure(string shapeId) : base(shapeId)
-    {
-    }
 }
