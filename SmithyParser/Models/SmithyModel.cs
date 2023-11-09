@@ -1,6 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using SmithyParser.Models.Types;
 
 namespace SmithyParser.Models;
@@ -11,6 +12,7 @@ public class SmithyModel
 
     public SmithyModel(dynamic json)
     {
+        Version = (string)json.smithy;
         foreach (JToken shapeToken in json.shapes)
         {
             var shapeId = Regex.Match((string)shapeToken.Path, @"'([^']*)'").Groups[1].Value;
@@ -24,8 +26,10 @@ public class SmithyModel
                 default: throw new NotImplementedException(shapeType);
 
                 case "string":
-                    var simpleType = new SimpleType(shapeId);
-                    simpleType.Type = shapeType;
+                    var simpleType = new SimpleType(shapeId)
+                    {
+                        Type = shapeType
+                    };
 
                     var traits = shapeProperty["traits"];
                     if (traits != null)
@@ -77,6 +81,22 @@ public class SmithyModel
                         structure.Members.Add(member);
                     }
 
+                    var structureTraits = shapeProperty["traits"];
+                    if (structureTraits != null)
+                    {
+                        foreach (JProperty structureTrait in structureTraits)
+                        {
+                            var traitId = structureTrait.Name;
+                            var traitValue = structureTrait.Value;
+                            var valueJson = JsonConvert.SerializeObject(traitValue);
+                            // Note: not sure if we should try to switch on the trait id and actually parse these.
+                            // for now we'll just serialize them as JSON.
+
+
+                            structure.Traits.Add(new Trait(traitId), valueJson);
+                        }
+                    }
+
                     Shapes.Add(structure);
                     break;
 
@@ -111,10 +131,72 @@ public class SmithyModel
                 case "operation":
                     var operation = new Operation(shapeId);
 
+                    if (shapeProperty["input"] != null) operation.Input = (string)shapeProperty["input"]["target"];
+                    if (shapeProperty["output"] != null) operation.Output = (string)shapeProperty["output"]["target"];
+
+                    var errors = shapeProperty["errors"];
+                    if (errors != null)
+                    {
+                        foreach (var error in errors)
+                        {
+                            operation.Errors.Add((string)error["target"]);
+                        }
+                    }
+
+                    var operationTraits = shapeProperty["traits"];
+                    if (operationTraits != null)
+                    {
+                        foreach (JProperty operationTrait in operationTraits)
+                        {
+                            var traitId = operationTrait.Name;
+                            var traitValue = operationTrait.Value;
+                            var valueJson = JsonConvert.SerializeObject(traitValue);
+                            operation.Traits.Add(new Trait(traitId), valueJson);
+                        }
+
+                    }
+
                     Shapes.Add(operation);
                     break;
                 case "service":
                     var service = new Service(shapeId);
+
+                    var version = shapeProperty["version"];
+                    if (version != null)
+                    {
+                        service.Version = (string)version;
+                    }
+
+                    var operations = shapeProperty["operations"];
+                    if (operations != null)
+                    {
+                        foreach (var op in operations)
+                        {
+                            service.Operations.Add((string)op["target"]);
+                        }
+                    }
+
+                    var serviceResources = shapeProperty["resources"];
+                    if (serviceResources != null)
+                    {
+                        foreach (var res in serviceResources)
+                        {
+                            service.Resources.Add((string)res["target"]);
+                        }
+                    }
+
+                    var serviceTraits = shapeProperty["traits"];
+                    if (serviceTraits != null)
+                    {
+                        foreach (JProperty st in serviceTraits)
+                        {
+                            var traitId = st.Name;
+                            var traitValue = st.Value;
+                            var valueJson = JsonConvert.SerializeObject(traitValue);
+                            service.Traits.Add(new Trait(traitId), valueJson);
+                        }
+                    }
+
                     Shapes.Add(service);
                     break;
             }

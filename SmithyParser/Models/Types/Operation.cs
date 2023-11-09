@@ -7,8 +7,15 @@ public class Operation : Shape
     {
     }
 
-    public Structure Input { get; set; }
-    public Structure Output { get; set; }
+    public string Input { get; set; }
+    public string Output { get; set; }
 
-    public Dictionary<string, Structure> Events { get; set; }
+    public List<string> Errors = new();
+
+    public Dictionary<Trait, object> Traits = new ();
+
+
+    public Structure InputOLD { get; set; }
+    public Structure OutputOLD { get; set; }
+    public Dictionary<string, Structure> EventsOLD { get; set; }
 }

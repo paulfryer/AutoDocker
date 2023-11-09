@@ -65,7 +65,7 @@ public static class Extensions
 
             process.WaitForExit();
 
-            Console.WriteLine("NuGet CLI Output:");
+            Console.WriteLine("NuGet CLI OutputOLD:");
             Console.WriteLine(output);
 
             if (!string.IsNullOrWhiteSpace(error))
@@ -224,21 +224,21 @@ public static class Extensions
                 .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
 
 
-            foreach (var operation in service.Operations)
+            foreach (var operation in service.OperationsOLD)
             {
                 // Create the method declaration
                 var methodDeclaration = SyntaxFactory.MethodDeclaration(
                         SyntaxFactory.GenericName(SyntaxFactory.Identifier("Task"))
                             .WithTypeArgumentList(SyntaxFactory.TypeArgumentList(
                                 SyntaxFactory.SingletonSeparatedList(
-                                    SyntaxFactory.ParseTypeName(operation.Output.Name)))),
+                                    SyntaxFactory.ParseTypeName(operation.OutputOLD.Name)))),
                         operation.Name)
                     .WithParameterList(
                         SyntaxFactory.ParameterList(
                             SyntaxFactory.SingletonSeparatedList(
                                 SyntaxFactory.Parameter(
                                         SyntaxFactory.Identifier("input"))
-                                    .WithType(SyntaxFactory.ParseTypeName(operation.Input.Name)))))
+                                    .WithType(SyntaxFactory.ParseTypeName(operation.InputOLD.Name)))))
                     .WithSemicolonToken(
                         SyntaxFactory.Token(SyntaxKind.SemicolonToken)); // Add a semicolon to indicate no method body
 
@@ -247,10 +247,10 @@ public static class Extensions
 
 
                 // Create the input class
-                var inputClass = SyntaxFactory.ClassDeclaration(operation.Input.Name)
+                var inputClass = SyntaxFactory.ClassDeclaration(operation.InputOLD.Name)
                     .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
 
-                foreach (var inputMember in operation.Input.MembersOLD)
+                foreach (var inputMember in operation.InputOLD.MembersOLD)
                 {
                     var typeName = inputMember.Value.Name;
 
@@ -273,10 +273,10 @@ public static class Extensions
 
 
                 // output class
-                var outputClass = SyntaxFactory.ClassDeclaration(operation.Output.Name)
+                var outputClass = SyntaxFactory.ClassDeclaration(operation.OutputOLD.Name)
                     .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
 
-                foreach (var outputMember in operation.Output.MembersOLD)
+                foreach (var outputMember in operation.OutputOLD.MembersOLD)
                 {
                     var typeName = outputMember.Value.Name;
 

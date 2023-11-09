@@ -73,7 +73,7 @@ internal class Program
 
             process.WaitForExit();
 
-            Console.WriteLine("Smithy CLI Output:");
+            Console.WriteLine("Smithy CLI OutputOLD:");
             Console.WriteLine(output);
 
             if (!string.IsNullOrWhiteSpace(error))
@@ -148,8 +148,8 @@ internal class Program
                 var outputShapeObj = m.shapes[outputShapeId];
 
 
-                operation.Input = new Structure(inputShapeId);
-                operation.Output = new Structure(outputShapeId);
+                operation.InputOLD = new Structure(inputShapeId);
+                operation.OutputOLD = new Structure(outputShapeId);
 
 
                 if (inputShapObj != null)
@@ -161,16 +161,16 @@ internal class Program
                         switch (inputMemberTarget)
                         {
                             case "smithy.api#SimpleType":
-                                operation.Input.MembersOLD.Add(memberName, typeof(string));
+                                operation.InputOLD.MembersOLD.Add(memberName, typeof(string));
                                 break;
                             case "smithy.api#Double":
-                                operation.Input.MembersOLD.Add(memberName, typeof(double));
+                                operation.InputOLD.MembersOLD.Add(memberName, typeof(double));
                                 break;
                             case "smithy.api#Integer":
-                                operation.Input.MembersOLD.Add(memberName, typeof(int));
+                                operation.InputOLD.MembersOLD.Add(memberName, typeof(int));
                                 break;
                             case "smithy.api#Timestamp":
-                                operation.Input.MembersOLD.Add(memberName, typeof(DateTime));
+                                operation.InputOLD.MembersOLD.Add(memberName, typeof(DateTime));
                                 break;
                             default:
 
@@ -189,16 +189,16 @@ internal class Program
                         switch (memberTarget)
                         {
                             case "smithy.api#SimpleType":
-                                operation.Output.MembersOLD.Add(memberName, typeof(string));
+                                operation.OutputOLD.MembersOLD.Add(memberName, typeof(string));
                                 break;
                             case "smithy.api#Double":
-                                operation.Output.MembersOLD.Add(memberName, typeof(double));
+                                operation.OutputOLD.MembersOLD.Add(memberName, typeof(double));
                                 break;
                             case "smithy.api#Integer":
-                                operation.Output.MembersOLD.Add(memberName, typeof(int));
+                                operation.OutputOLD.MembersOLD.Add(memberName, typeof(int));
                                 break;
                             case "smithy.api#Timestamp":
-                                operation.Output.MembersOLD.Add(memberName, typeof(DateTime));
+                                operation.OutputOLD.MembersOLD.Add(memberName, typeof(DateTime));
                                 break;
                             default:
 
@@ -210,7 +210,7 @@ internal class Program
                                         customType["traits"]["smithy.api#streaming"] != null &&
                                         customType["type"] == "union")
                                     {
-                                        operation.Events = new Dictionary<string, Structure>();
+                                        operation.EventsOLD = new Dictionary<string, Structure>();
 
                                         foreach (var member in customType["members"])
                                         {
@@ -242,7 +242,7 @@ internal class Program
                                                 }
                                             }
 
-                                            operation.Events.Add(eventName, eventStructure);
+                                            operation.EventsOLD.Add(eventName, eventStructure);
                                         }
                                     }
                                 }
@@ -256,7 +256,7 @@ internal class Program
                     }
 
 
-                service.Operations.Add(operation);
+                service.OperationsOLD.Add(operation);
             }
 
 

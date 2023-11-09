@@ -10,4 +10,7 @@ public class Structure : Shape
     public Structure(string shapeId) : base(shapeId)
     {
     }
+
+   // public Dictionary<string, string> Traits = new();
+    public Dictionary<Trait, object> Traits = new();
 }
