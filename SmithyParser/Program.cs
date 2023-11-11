@@ -109,8 +109,8 @@ internal class Program
 
 
         var smithyModel = new SmithyModel(m);
-
-
+        var cSharp = smithyModel.ToCSharp();
+        Console.Write(cSharp);
         
 
 

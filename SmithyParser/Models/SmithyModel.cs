@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Text;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -217,4 +218,73 @@ public class SmithyModel
     public IEnumerable<List> Lists => Shapes.OfType<List>();
 
     public IEnumerable<SimpleType> SimpleTypes => Shapes.OfType<SimpleType>();
+
+
+    public string ToCSharp()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"namespace {Services.First().Namespace}");
+
+
+
+        foreach (var s in Structures)
+        {
+            BuildStructure(sb, s);
+        }
+
+        // Services
+        if (Services.Count() > 1) throw new Exception("Parser was designed to only handle 1 service per smithy model.");
+        var service = Services.First();
+        sb.AppendLine($"public interface I{service.Name}Service {{");
+        foreach (var operation in Operations)
+        {
+            var outputStructure = Structures.Single(s => s.ShapeId == operation.Output);
+            var inputStructure = Structures.Single(s => s.ShapeId == operation.Input);
+
+            sb.AppendLine($"    public Task<{outputStructure.Name}> {operation.Name}({inputStructure.Name} input);");
+        }
+
+        sb.AppendLine("}");
+        
+
+        return sb.ToString();
+    }
+
+    public void BuildStructure(StringBuilder sb, Structure structure)
+    {
+        sb.AppendLine("// Structure");
+        sb.AppendLine($"public class {structure.Name} {{");
+        foreach (var m in structure.Members)
+        {
+            if (m.Target.StartsWith("smithy.api#"))
+            {
+                var smithyType = m.Target.Split('#')[1];
+                var dotNetType = smithyType; // TODO: build a lookup table here.
+
+                sb.AppendLine($"    public {dotNetType} {m.Name} {{ get; set; }}");
+            }
+            else
+            {
+                var simpleType = SimpleTypes.SingleOrDefault(s => s.ShapeId == m.Target);
+                if (simpleType != null)
+                {
+                    var dotNetType = simpleType.Type; // TODO: build a lookup talbe here.
+                    sb.AppendLine($"    public {dotNetType} {m.Name} {{ get; set; }}");
+                } 
+                
+                var subStructure = Structures.SingleOrDefault(s => s.ShapeId == m.Target);
+                if (subStructure != null)
+                {
+
+                    sb.AppendLine($"    public {subStructure.Name} {m.Name} {{ get; set; }}");
+
+                    //BuildStructure(sb, subStructure);
+                }
+                
+            }
+        }
+        sb.AppendLine("}");
+    }
+
+
 }
