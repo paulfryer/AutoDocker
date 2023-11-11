@@ -36,15 +36,37 @@ internal class Program
     private static async Task Generate(string smithyFileLocation)
     {
         var start = new DateTime(2023, 10, 01);
-
         var days = Convert.ToInt16(DateTime.UtcNow.Subtract(start).TotalDays);
         var minutes = Convert.ToInt32(DateTime.UtcNow.Subtract(start).TotalMinutes);
 
+        var smithyModel = ParseSmithyDocument(smithyFileLocation);
 
-        var smithy = ParseSmithyDocument(smithyFileLocation);
-        await smithy.BuildAndPublishPackage("C#", new Version(days, minutes, 0, 0), domain, repositoryName);
+
+        await smithyModel.BuildAndPublishPackage("C#", new Version(days, minutes, 0, 0), domain, repositoryName);
     }
 
+
+    private static SmithyModel ParseSmithyDocument(string smithyFileLocation)
+    {
+        var smithySource = File.ReadAllText(smithyFileLocation);
+
+        if (Directory.Exists("build"))
+            Directory.Delete("build", true);
+
+        CallSmithyCLIBuild(smithyFileLocation);
+
+
+        var buildJson = File.ReadAllText("build/smithy/source/build-info/smithy-build-info.json");
+        var modelJson = File.ReadAllText("build/smithy/source/model/model.json");
+
+
+        var b = JsonConvert.DeserializeObject<dynamic>(buildJson);
+        var m = JsonConvert.DeserializeObject<dynamic>(modelJson);
+
+
+        var smithyModel = new SmithyModel(m);
+        return smithyModel;
+    }
 
     private static void CallSmithyCLIBuild(string smithyFileLocation)
     {
@@ -60,245 +82,31 @@ internal class Program
             CreateNoWindow = true
         };
 
-        using (var process = new Process { StartInfo = psi })
+        using var process = new Process();
+        process.StartInfo = psi;
+        process.Start();
+
+        // Write the "smithy" command to the standard input
+        process.StandardInput.WriteLine(smithyCommand);
+        process.StandardInput.Flush();
+        process.StandardInput.Close();
+
+        // Read the output and error streams
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+
+        process.WaitForExit();
+
+        Console.WriteLine("Smithy CLI Output:");
+        Console.WriteLine(output);
+
+        if (!string.IsNullOrWhiteSpace(error))
         {
-            process.Start();
-
-            // Write the "smithy" command to the standard input
-            process.StandardInput.WriteLine(smithyCommand);
-            process.StandardInput.Flush();
-            process.StandardInput.Close();
-
-            // Read the output and error streams
-            var output = process.StandardOutput.ReadToEnd();
-            var error = process.StandardError.ReadToEnd();
-
-            process.WaitForExit();
-
-            Console.WriteLine("Smithy CLI OutputOLD:");
-            Console.WriteLine(output);
-
-            if (!string.IsNullOrWhiteSpace(error))
-            {
-                Console.WriteLine("Smithy CLI Error:");
-                Console.WriteLine(error);
-            }
-
-            Console.WriteLine("Smithy CLI process completed.");
-        }
-    }
-
-
-    private static Smithy ParseSmithyDocument(string smithyFileLocation)
-    {
-        var smithySource = File.ReadAllText(smithyFileLocation);
-
-        if (Directory.Exists("build"))
-            Directory.Delete("build", true);
-
-
-        // Build it here with CLI..
-
-        CallSmithyCLIBuild(smithyFileLocation);
-
-
-        var buildJson = File.ReadAllText("build/smithy/source/build-info/smithy-build-info.json");
-        var modelJson = File.ReadAllText("build/smithy/source/model/model.json");
-
-
-        var b = JsonConvert.DeserializeObject<dynamic>(buildJson);
-        var m = JsonConvert.DeserializeObject<dynamic>(modelJson);
-
-
-        var smithyModel = new SmithyModel(m);
-        var csharpGenerator = new CSharpCodeGenerator();
-        var sourceCode = csharpGenerator.GenerateCode(smithyModel);
-        
-
-
-        /// OLD WAY .....................................
-        var info = new SmithyBuildInfo();
-
-        foreach (var o in b.operationShapeIds) info.OperationShapeIds.Add((string)o);
-        foreach (var r in b.resourceShapeIds) info.ResourceShapeIds.Add((string)r);
-        foreach (var s in b.serviceShapeIds) info.ServiceShapeIds.Add((string)s);
-
-        var smithy = new Smithy
-        {
-            Version = m.smithy
-        };
-
-        var templateFileName = smithyFileLocation.Split('\\').Last();
-
-        foreach (var serviceShapeId in info.ServiceShapeIds)
-        {
-            var s = m.shapes[serviceShapeId];
-
-            var service = new Service(serviceShapeId);
-
-            //foreach (var o in s.operations)
-            foreach (var target in info.OperationShapeIds) //.Select(s => new Operation(s)))
-            {
-                //var target = (string)o.target;
-                var operationObj = m.shapes[target];
-
-                var operation = new Operation(target);
-
-                var inputShapeId = (string)operationObj.input.target;
-                var outputShapeId = (string)operationObj.output.target;
-                var inputShapObj = m.shapes[inputShapeId];
-                var outputShapeObj = m.shapes[outputShapeId];
-
-
-                operation.InputOLD = new Structure(inputShapeId);
-                operation.OutputOLD = new Structure(outputShapeId);
-
-
-                if (inputShapObj != null)
-                    foreach (var inputMember in inputShapObj.members)
-                    {
-                        var memberName = (string)inputMember.Name;
-                        var inputMemberTarget = (string)inputMember.First.target;
-
-                        switch (inputMemberTarget)
-                        {
-                            case "smithy.api#SimpleType":
-                                operation.InputOLD.MembersOLD.Add(memberName, typeof(string));
-                                break;
-                            case "smithy.api#Double":
-                                operation.InputOLD.MembersOLD.Add(memberName, typeof(double));
-                                break;
-                            case "smithy.api#Integer":
-                                operation.InputOLD.MembersOLD.Add(memberName, typeof(int));
-                                break;
-                            case "smithy.api#Timestamp":
-                                operation.InputOLD.MembersOLD.Add(memberName, typeof(DateTime));
-                                break;
-                            default:
-
-                                Console.WriteLine($"Unsupported target: {inputMemberTarget}");
-                                break;
-                        }
-                    }
-
-                // TODO: make a single loop that updates both input and output.
-                if (outputShapeObj != null)
-                    foreach (var outputMember in outputShapeObj.members)
-                    {
-                        var memberName = (string)outputMember.Name;
-                        var memberTarget = (string)outputMember.First.target;
-
-                        switch (memberTarget)
-                        {
-                            case "smithy.api#SimpleType":
-                                operation.OutputOLD.MembersOLD.Add(memberName, typeof(string));
-                                break;
-                            case "smithy.api#Double":
-                                operation.OutputOLD.MembersOLD.Add(memberName, typeof(double));
-                                break;
-                            case "smithy.api#Integer":
-                                operation.OutputOLD.MembersOLD.Add(memberName, typeof(int));
-                                break;
-                            case "smithy.api#Timestamp":
-                                operation.OutputOLD.MembersOLD.Add(memberName, typeof(DateTime));
-                                break;
-                            default:
-
-                                var customType = m.shapes[memberTarget];
-
-                                if (customType != null)
-                                {
-                                    if (customType["traits"] != null &&
-                                        customType["traits"]["smithy.api#streaming"] != null &&
-                                        customType["type"] == "union")
-                                    {
-                                        operation.EventsOLD = new Dictionary<string, Structure>();
-
-                                        foreach (var member in customType["members"])
-                                        {
-                                            var eventName = (string)member.Name;
-                                            var eventTypeKey = (string)member.First["target"];
-                                            var targetType = m.shapes[eventTypeKey];
-
-                                            var eventStructure = new Structure(eventTypeKey);
-
-                                            foreach (var mem in targetType.members)
-                                            {
-                                                var memName = (string)mem.Name;
-                                                var memTarget = (string)mem.First.target;
-                                                switch (memTarget)
-                                                {
-                                                    case "smithy.api#SimpleType":
-                                                        eventStructure.MembersOLD.Add(memName, typeof(string));
-                                                        break;
-                                                    case "smithy.api#Double":
-                                                        eventStructure.MembersOLD.Add(memName, typeof(double));
-                                                        break;
-                                                    case "smithy.api#Integer":
-                                                        eventStructure.MembersOLD.Add(memName, typeof(int));
-                                                        break;
-                                                    case "smithy.api#Timestamp":
-                                                        eventStructure.MembersOLD.Add(memName, typeof(DateTime));
-                                                        break;
-                                                    default: throw new NotImplementedException();
-                                                }
-                                            }
-
-                                            operation.EventsOLD.Add(eventName, eventStructure);
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"Unsupported target: {memberTarget}");
-                                }
-
-                                break;
-                        }
-                    }
-
-
-                service.OperationsOLD.Add(operation);
-            }
-
-
-            smithy.Services.Add(service);
+            Console.WriteLine("Smithy CLI Error:");
+            Console.WriteLine(error);
         }
 
-
-        return smithy;
+        Console.WriteLine("Smithy CLI process completed.");
     }
 
-    private static dynamic GetProperties(dynamic obj)
-    {
-        var properties = new ExpandoObject() as IDictionary<string, object>;
-        if (obj == null)
-            return properties;
-
-        foreach (var propertyInfo in obj.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
-            properties[propertyInfo.Name] = propertyInfo.GetValue(obj);
-
-        return properties;
-    }
-}
-
-public class SmithyBuildInfo
-{
-    public List<string> OperationShapeIds = new();
-
-    public List<string> ResourceShapeIds = new();
-
-    public List<string> ServiceShapeIds = new();
-}
-
-
-public class Smithy
-{
-    public List<Service> Services = new();
-
-    public string Namespace => Services.First().Namespace;
-
-
-    public string Name => Services.First().Namespace + "." + Services.First().Name;
-    public string Version { get; set; }
 }

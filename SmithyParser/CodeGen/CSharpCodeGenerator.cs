@@ -6,14 +6,16 @@ namespace SmithyParser.CodeGen;
 
 internal class CSharpCodeGenerator : ICodeGenerator
 {
-    private Dictionary<string, string> SimpleTypeToDotNetTypeMap => new()
-    {
-        { "string", "string" }
-    };
+
 
     public string GenerateCode(SmithyModel model)
     {
         var sb = new StringBuilder();
+
+        sb.AppendLine("using System;");
+        sb.AppendLine("using System.Threading.Tasks;");
+        sb.AppendLine("using System.Collections.Generic;");
+
         sb.AppendLine($"namespace {model.Namespace} {{");
 
         foreach (var list in model.Lists)
@@ -42,7 +44,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     var simpleType = model.SimpleTypes.SingleOrDefault(s => s.ShapeId == m.Target);
                     if (simpleType != null)
                     {
-                        var dotNetType = SimpleTypeToDotNetTypeMap[simpleType.Type];
+                        var dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
                         sb.AppendLine($"    public {dotNetType} {m.Name} {{ get; set; }}");
                     }
 
@@ -95,7 +97,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
     }
 
 
-    private string GetDotNetTypeForSmithyType(string smithyType)
+    private static string GetDotNetTypeForSmithyType(string smithyType)
     {
         var map = new Dictionary<string, string>
         {
@@ -108,5 +110,13 @@ internal class CSharpCodeGenerator : ICodeGenerator
         if (!map.ContainsKey(smithyType))
             throw new Exception($"Could not find a .net mapping for smithy type: {smithyType}");
         return map[smithyType];
+    }
+
+    private static string GetDotNetTypeForSimpleType(string simpleType)
+    {
+        var map = new Dictionary<string, string>{ { "string", "string" }};
+        if (!map.ContainsKey(simpleType))
+            throw new Exception($"Could not find a .net mapping for simple type: {simpleType}");
+        return map[simpleType];
     }
 }

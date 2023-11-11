@@ -180,10 +180,12 @@ public class SmithyModel
         }
 
         Namespace = Services.First().Namespace;
+        Name = Services.First().Name;
     }
 
     public string Namespace { get; set; }
 
+    public string Name { get; set; }
 
     public string Version { get; set; }
 

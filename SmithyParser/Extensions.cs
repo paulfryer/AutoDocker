@@ -8,17 +8,19 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using NuGet.Packaging;
 using NuGet.Versioning;
+using SmithyParser.CodeGen;
+using SmithyParser.Models;
 
 public static class Extensions
 {
-    public static async Task BuildAndPublishPackage(this Smithy smithy, string language, Version version, string domain,
+    public static async Task BuildAndPublishPackage(this SmithyModel smithy, string language, Version version, string domain,
         string repositoryName)
     {
         var packageFileName = smithy.BuildCodePackage(language, version);
         await smithy.PublishPackage(language, packageFileName, domain, repositoryName);
     }
 
-    public static async Task PublishPackage(this Smithy smithy, string language, string packageFileName, string domain,
+    public static async Task PublishPackage(this SmithyModel smithy, string language, string packageFileName, string domain,
         string repositoryName)
     {
         if (language != "C#") throw new NotImplementedException(language);
@@ -78,15 +80,15 @@ public static class Extensions
         }
     }
 
-    [Obsolete]
-    public static string BuildCodePackage(this Smithy smithy, string language, Version newVersion)
+    public static string BuildCodePackage(this SmithyModel smithy, string language, Version newVersion)
     {
-        var sourceCode = smithy.GenerateSourceCode(language);
+        var csharpGenerator = new CSharpCodeGenerator();
+        var sourceCode = csharpGenerator.GenerateCode(smithy);
 
         if (language != "C#") throw new NotImplementedException(language);
 
 
-        BuildDotNetProject(smithy, sourceCode);
+        BuildDotNetProject(smithy, sourceCode, newVersion);
 
 
         var outputPath = ".";
@@ -105,42 +107,6 @@ public static class Extensions
         };
 
         packageBuilder.Authors.Add("Build Server");
-
-        // Define package dependencies
-
-        /*
-        var dependencies = new PackageDependencyGroup(
-            NuGetFramework.Parse("net6.0"),
-            new List<PackageDependency>
-            {
-                new PackageDependency("System.Runtime", VersionRange.Parse("6.0.0"))
-            }
-        );
-        packageBuilder.DependencyGroups.Add(dependencies);
-        */
-
-        // Set Source Link
-        // packageBuilder.packa = new Uri("https://example.com/source-link-repository");
-
-
-        // Set Compiler Flags
-        //packageBuilder.TargetFrameworks.Add(NuGetFramework.Parse("net6.0")); // = "Release";
-        //  packageBuilder.TargetFrameworks.Add(NuGetFramework.AnyFramework);
-
-
-        // Define package dependencies
-        /*
-        var dependencies = new List<PackageDependencyGroup>
-        {
-            new PackageDependencyGroup(NuGetFramework.AnyFramework,
-                new List<PackageDependency>
-                {
-                    new PackageDependency("System.Private.CoreLib", VersionRange.Parse("6.0.0.0")),
-                   // new PackageDependency("DependencyPackage2", VersionRange.Parse("2.0.0"))
-                })
-        };
-        packageBuilder.DependencyGroups.AddRange(dependencies);
-        */
 
 
         var packageContents = new List<ManifestFile>
@@ -171,151 +137,7 @@ public static class Extensions
         return packageFileName;
     }
 
-    // Helper method to add the [assembly: AssemblyVersion] attribute to the syntax tree
-    private static SyntaxTree AddAssemblyVersionAttribute(SyntaxTree syntaxTree, Version version)
-    {
-        var root = syntaxTree.GetRoot();
-
-        // Create the [assembly: AssemblyVersion] attribute with the specified version
-        var assemblyVersionAttribute = SyntaxFactory.Attribute(
-            SyntaxFactory.ParseName("System.Reflection.AssemblyVersion"),
-            SyntaxFactory.AttributeArgumentList(
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.AttributeArgument(
-                        SyntaxFactory.LiteralExpression(
-                            SyntaxKind.StringLiteralExpression,
-                            SyntaxFactory.Literal(version.ToString()))))));
-
-        // Add the attribute to the compilation unit
-        var compilationUnit = (CompilationUnitSyntax)root;
-        compilationUnit = compilationUnit.AddAttributeLists(
-            SyntaxFactory.AttributeList(
-                SyntaxFactory.SingletonSeparatedList(assemblyVersionAttribute)));
-
-        return syntaxTree.WithRootAndOptions(compilationUnit, syntaxTree.Options);
-    }
-
-    public static string GenerateSourceCode(this Smithy smithy, string language)
-    {
-        if (language != "C#") throw new NotImplementedException(language);
-
-
-        // Create a compilation unit
-        var root = SyntaxFactory.CompilationUnit();
-
-
-        // Add using statements
-        root = root.AddUsings(
-            SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System")),
-            SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Threading.Tasks"))
-        ); // Add using for System.Threading.Tasks
-
-
-        var namespaceDeclaration = SyntaxFactory.NamespaceDeclaration(SyntaxFactory.ParseName(smithy.Namespace));
-
-
-        foreach (var service in smithy.Services)
-        {
-            // Create the namespace
-            // var namespaceDeclaration = SyntaxFactory.NamespaceDeclaration(SyntaxFactory.ParseName(service.Namespace));
-
-            // Create the interface
-            var interfaceDeclaration = SyntaxFactory.InterfaceDeclaration($"I{service.Name}Service")
-                .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
-
-
-            foreach (var operation in service.OperationsOLD)
-            {
-                // Create the method declaration
-                var methodDeclaration = SyntaxFactory.MethodDeclaration(
-                        SyntaxFactory.GenericName(SyntaxFactory.Identifier("Task"))
-                            .WithTypeArgumentList(SyntaxFactory.TypeArgumentList(
-                                SyntaxFactory.SingletonSeparatedList(
-                                    SyntaxFactory.ParseTypeName(operation.OutputOLD.Name)))),
-                        operation.Name)
-                    .WithParameterList(
-                        SyntaxFactory.ParameterList(
-                            SyntaxFactory.SingletonSeparatedList(
-                                SyntaxFactory.Parameter(
-                                        SyntaxFactory.Identifier("input"))
-                                    .WithType(SyntaxFactory.ParseTypeName(operation.InputOLD.Name)))))
-                    .WithSemicolonToken(
-                        SyntaxFactory.Token(SyntaxKind.SemicolonToken)); // Add a semicolon to indicate no method body
-
-                // Add the method to the interface
-                interfaceDeclaration = interfaceDeclaration.AddMembers(methodDeclaration);
-
-
-                // Create the input class
-                var inputClass = SyntaxFactory.ClassDeclaration(operation.InputOLD.Name)
-                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
-
-                foreach (var inputMember in operation.InputOLD.MembersOLD)
-                {
-                    var typeName = inputMember.Value.Name;
-
-                    inputClass = inputClass.AddMembers(
-                        SyntaxFactory.PropertyDeclaration(
-                                SyntaxFactory.ParseTypeName(typeName), inputMember.Key)
-                            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
-                            .WithAccessorList(
-                                SyntaxFactory.AccessorList(
-                                    SyntaxFactory.List(new[]
-                                    {
-                                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
-                                        SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-                                    })
-                                )
-                            ));
-                }
-
-
-                // output class
-                var outputClass = SyntaxFactory.ClassDeclaration(operation.OutputOLD.Name)
-                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
-
-                foreach (var outputMember in operation.OutputOLD.MembersOLD)
-                {
-                    var typeName = outputMember.Value.Name;
-
-                    outputClass = outputClass.AddMembers(
-                        SyntaxFactory.PropertyDeclaration(
-                                SyntaxFactory.ParseTypeName(typeName), outputMember.Key)
-                            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
-                            .WithAccessorList(
-                                SyntaxFactory.AccessorList(
-                                    SyntaxFactory.List(new[]
-                                    {
-                                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
-                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken)),
-                                        SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-                                            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-                                    })
-                                )
-                            ));
-                }
-
-
-                // Add the classes to the namespace
-                namespaceDeclaration = namespaceDeclaration.AddMembers(inputClass, outputClass);
-            }
-
-            namespaceDeclaration = namespaceDeclaration.AddMembers(interfaceDeclaration);
-        }
-
-        // Add the namespace to the compilation unit
-        root = root.AddMembers(namespaceDeclaration);
-        // Convert the compilation unit to a string
-        var generatedCode = root.NormalizeWhitespace().ToFullString();
-
-        Console.WriteLine(generatedCode);
-
-        return generatedCode;
-    }
-
-    public static void BuildDotNetProject(Smithy smithy, string sourceCode)
+    public static void BuildDotNetProject(SmithyModel smithy, string sourceCode, Version version)
     {
         try
         {
@@ -337,6 +159,7 @@ public static class Extensions
             var projectFileContent = $@"
                 <Project Sdk=""Microsoft.NET.Sdk"">
                     <PropertyGroup>
+                        <AssemblyVersion>{version.Major}.{version.Minor}.{version.Build}.{version.Revision}</AssemblyVersion>
                         <TargetFramework>net6.0</TargetFramework>
                         <OutputType>Library</OutputType>
                         <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
