@@ -3,7 +3,9 @@ using System.Dynamic;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
+using Microsoft.CodeAnalysis.CSharp;
 using Newtonsoft.Json;
+using SmithyParser.CodeGen;
 using SmithyParser.Models;
 using SmithyParser.Models.Types;
 
@@ -109,8 +111,8 @@ internal class Program
 
 
         var smithyModel = new SmithyModel(m);
-        var cSharp = smithyModel.ToCSharp();
-        Console.Write(cSharp);
+        var csharpGenerator = new CSharpCodeGenerator();
+        var sourceCode = csharpGenerator.GenerateCode(smithyModel);
         
 
 
