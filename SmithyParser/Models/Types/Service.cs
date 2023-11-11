@@ -11,7 +11,7 @@ public class Service : Shape
 
     public List<string> Resources = new();
 
-    public Dictionary<Trait, object> Traits = new ();
+    public Dictionary<Trait, string> Traits = new ();
 
     public Service(string shapeId) : base(shapeId)
     {

@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -10,6 +11,8 @@ namespace SmithyParser.Models;
 public class SmithyModel
 {
     public List<Shape> Shapes = new();
+
+    public string Namespace { get; set; }
 
     public SmithyModel(dynamic json)
     {
@@ -202,6 +205,8 @@ public class SmithyModel
                     break;
             }
         }
+
+        Namespace = Services.First().Namespace;
     }
 
 
@@ -220,12 +225,18 @@ public class SmithyModel
     public IEnumerable<SimpleType> SimpleTypes => Shapes.OfType<SimpleType>();
 
 
+
     public string ToCSharp()
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"namespace {Services.First().Namespace}");
+        sb.AppendLine($"namespace {Namespace} {{");
 
+        foreach (var list in Lists)
+        {
+            var listTarget = Structures.Single(s => s.ShapeId == list.Target);
 
+            sb.AppendLine($"public class {list.Name} : List<{listTarget.Name}> {{}}");
+        }
 
         foreach (var s in Structures)
         {
@@ -235,32 +246,55 @@ public class SmithyModel
         // Services
         if (Services.Count() > 1) throw new Exception("Parser was designed to only handle 1 service per smithy model.");
         var service = Services.First();
+
+        var containsDocumentation = service.Traits.Any(t => t.Key.ShapeId == "smithy.api#documentation");
+        if (containsDocumentation)
+        {
+            var documentationTrait = service.Traits.Single(t => t.Key.ShapeId == "smithy.api#documentation");
+            var documentation = JsonConvert.DeserializeObject<string>(documentationTrait.Value);
+            sb.AppendLine($"/// <summary>{documentation}</summary>");
+        }
+
         sb.AppendLine($"public interface I{service.Name}Service {{");
         foreach (var operation in Operations)
         {
             var outputStructure = Structures.Single(s => s.ShapeId == operation.Output);
             var inputStructure = Structures.Single(s => s.ShapeId == operation.Input);
 
+
+            foreach (var errorShapeId in operation.Errors)
+            {
+                var error = Shapes.Single(s => s.ShapeId == errorShapeId);
+                sb.AppendLine($"/// <exception cref=\"{error.Name}\"></exception>");
+            }
             sb.AppendLine($"    public Task<{outputStructure.Name}> {operation.Name}({inputStructure.Name} input);");
         }
-
         sb.AppendLine("}");
-        
+
+
+        // close the namespace.
+        sb.AppendLine("}");
 
         return sb.ToString();
     }
 
     public void BuildStructure(StringBuilder sb, Structure structure)
     {
-        sb.AppendLine("// Structure");
-        sb.AppendLine($"public class {structure.Name} {{");
+
+        var isError = structure.Traits.Any(t => t.Key.ShapeId == "smithy.api#error");
+
+
+        sb.AppendLine($"public class {structure.Name} {(isError ? ": Exception " : string.Empty)}{{");
+
+
+
+
         foreach (var m in structure.Members)
         {
             if (m.Target.StartsWith("smithy.api#"))
             {
                 var smithyType = m.Target.Split('#')[1];
-                var dotNetType = smithyType; // TODO: build a lookup table here.
-
+                var dotNetType = GetDotNetTypeForSmithyType(smithyType);
                 sb.AppendLine($"    public {dotNetType} {m.Name} {{ get; set; }}");
             }
             else
@@ -268,23 +302,45 @@ public class SmithyModel
                 var simpleType = SimpleTypes.SingleOrDefault(s => s.ShapeId == m.Target);
                 if (simpleType != null)
                 {
-                    var dotNetType = simpleType.Type; // TODO: build a lookup talbe here.
+                    var dotNetType = SimpleTypeToDotNetTypeMap[simpleType.Type]; 
                     sb.AppendLine($"    public {dotNetType} {m.Name} {{ get; set; }}");
                 } 
                 
                 var subStructure = Structures.SingleOrDefault(s => s.ShapeId == m.Target);
                 if (subStructure != null)
                 {
-
                     sb.AppendLine($"    public {subStructure.Name} {m.Name} {{ get; set; }}");
-
-                    //BuildStructure(sb, subStructure);
                 }
-                
+
+                var list = Lists.SingleOrDefault(l => l.ShapeId == m.Target);
+                if (list != null)
+                {
+                    sb.AppendLine($"    public {list.Name} {m.Name} {{ get; set; }}");
+                }
+
             }
         }
         sb.AppendLine("}");
     }
 
+    private string GetDotNetTypeForSmithyType(string smithyType)
+    {
+        var map = new Dictionary<string, string>()
+        {
+            { "String", "string" },
+            { "Float", "float" },
+            { "Timestamp", "DateTime" },
+            {"Integer", "int"}
+        };
+
+        if (!map.ContainsKey(smithyType))
+            throw new Exception($"Could not find a .net mapping for smithy type: {smithyType}");
+        return map[ smithyType ];
+    }
+
+    private Dictionary<string, string> SimpleTypeToDotNetTypeMap => new()
+    {
+        { "string", "string" }
+    };
 
 }
