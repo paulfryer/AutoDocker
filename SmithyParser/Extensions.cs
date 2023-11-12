@@ -85,6 +85,10 @@ public static class Extensions
         var csharpGenerator = new CSharpCodeGenerator();
         var sourceCode = csharpGenerator.GenerateCode(smithy);
 
+        Console.WriteLine("===== START GENERATED CODE =====");
+        Console.Write(sourceCode);
+        Console.WriteLine("===== END GENERATED CODE =====");
+
         if (language != "C#") throw new NotImplementedException(language);
 
 
