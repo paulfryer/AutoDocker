@@ -1,13 +1,8 @@
 ﻿using System.Diagnostics;
-using System.Dynamic;
-using System.Reflection;
-using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
-using Microsoft.CodeAnalysis.CSharp;
 using Newtonsoft.Json;
 using SmithyParser.CodeGen;
 using SmithyParser.Models;
-using SmithyParser.Models.Types;
 
 internal class Program
 {
@@ -107,5 +102,4 @@ internal class Program
 
         Console.WriteLine("Smithy CLI process completed.");
     }
-
 }

@@ -1,6 +1,7 @@
-﻿using System.Text;
-using Microsoft.CodeAnalysis.CSharp;
+﻿using System.Security;
+using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Formatting;
 using Newtonsoft.Json;
 using SmithyParser.Models;
@@ -9,8 +10,6 @@ namespace SmithyParser.CodeGen;
 
 internal class CSharpCodeGenerator : ICodeGenerator
 {
-
-
     public string GenerateCode(SmithyModel model)
     {
         var sb = new StringBuilder();
@@ -115,10 +114,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
     {
         var lines = summary.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
         var formattedSummary = "/// <summary>\n";
-        foreach (var line in lines)
-        {
-            formattedSummary += $"/// {System.Security.SecurityElement.Escape(line)}\n";
-        }
+        foreach (var line in lines) formattedSummary += $"/// {SecurityElement.Escape(line)}\n";
         formattedSummary += "/// </summary>";
         return formattedSummary;
     }
@@ -140,7 +136,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
     private static string GetDotNetTypeForSimpleType(string simpleType)
     {
-        var map = new Dictionary<string, string>{ { "string", "string" }};
+        var map = new Dictionary<string, string> { { "string", "string" } };
         if (!map.ContainsKey(simpleType))
             throw new Exception($"Could not find a .net mapping for simple type: {simpleType}");
         return map[simpleType];

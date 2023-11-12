@@ -3,9 +3,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Amazon.SecurityToken;
 using Amazon.SecurityToken.Model;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using NuGet.Packaging;
 using NuGet.Versioning;
 using SmithyParser.CodeGen;
@@ -13,14 +10,16 @@ using SmithyParser.Models;
 
 public static class Extensions
 {
-    public static async Task BuildAndPublishPackage(this SmithyModel smithy, string language, Version version, string domain,
+    public static async Task BuildAndPublishPackage(this SmithyModel smithy, string language, Version version,
+        string domain,
         string repositoryName)
     {
         var packageFileName = smithy.BuildCodePackage(language, version);
         await smithy.PublishPackage(language, packageFileName, domain, repositoryName);
     }
 
-    public static async Task PublishPackage(this SmithyModel smithy, string language, string packageFileName, string domain,
+    public static async Task PublishPackage(this SmithyModel smithy, string language, string packageFileName,
+        string domain,
         string repositoryName)
     {
         if (language != "C#") throw new NotImplementedException(language);
@@ -99,7 +98,7 @@ public static class Extensions
         var packageId = $"{smithy.Namespace}.{smithy.Name}";
         var version =
             new NuGetVersion(
-                $"{newVersion.Major}.{newVersion.Minor}.{newVersion.Build}"); 
+                $"{newVersion.Major}.{newVersion.Minor}.{newVersion.Build}");
         var description = $"{smithy.Name} generated Nuget Package.";
 
 

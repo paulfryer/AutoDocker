@@ -3,17 +3,16 @@
 [TypeName("service")]
 public class Service : Shape
 {
-    public List<Operation> OperationsOLD = new();
-
     public List<string> Operations = new();
-
-    public string Version { get; set; }
+    public List<Operation> OperationsOLD = new();
 
     public List<string> Resources = new();
 
-    public Dictionary<Trait, string> Traits = new ();
+    public Dictionary<Trait, string> Traits = new();
 
     public Service(string shapeId) : base(shapeId)
     {
     }
+
+    public string Version { get; set; }
 }

@@ -3,16 +3,16 @@
 [TypeName("operation")]
 public class Operation : Shape
 {
+    public List<string> Errors = new();
+
+    public Dictionary<Trait, object> Traits = new();
+
     public Operation(string shapeId) : base(shapeId)
     {
     }
 
     public string Input { get; set; }
     public string Output { get; set; }
-
-    public List<string> Errors = new();
-
-    public Dictionary<Trait, object> Traits = new ();
 
 
     public Structure InputOLD { get; set; }

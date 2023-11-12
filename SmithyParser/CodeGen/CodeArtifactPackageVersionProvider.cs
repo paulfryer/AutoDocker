@@ -5,12 +5,12 @@ namespace SmithyParser.CodeGen;
 
 public class CodeArtifactPackageVersionProvider //: IPackageVersionProvider
 {
-    private IAmazonCodeArtifact codeArtifact = new AmazonCodeArtifactClient();
+    private readonly IAmazonCodeArtifact codeArtifact = new AmazonCodeArtifactClient();
 
     public async Task<Version> GetBuildVersion(string packageName, string repository, string domain)
     {
-       // var domain = Environment.GetEnvironmentVariable("CODE_ARTIFACT_DOMAIN");
-       // var repository = Environment.GetEnvironmentVariable("CODE_ARTIFACT_REPOSITORY");
+        // var domain = Environment.GetEnvironmentVariable("CODE_ARTIFACT_DOMAIN");
+        // var repository = Environment.GetEnvironmentVariable("CODE_ARTIFACT_REPOSITORY");
         var format = "nuget";
 
         try
@@ -46,24 +46,16 @@ public class CodeArtifactPackageVersionProvider //: IPackageVersionProvider
 
     public static Version IncrementBuild(Version originalVersion)
     {
-        if (originalVersion == null)
-        {
-            throw new ArgumentNullException(nameof(originalVersion));
-        }
+        if (originalVersion == null) throw new ArgumentNullException(nameof(originalVersion));
 
         // Increment the build number. If it's -1 (undefined), set it to 0.
-        int newBuild = originalVersion.Build != -1 ? originalVersion.Build + 1 : 0;
+        var newBuild = originalVersion.Build != -1 ? originalVersion.Build + 1 : 0;
 
         // Check if the Revision component is defined.
         if (originalVersion.Revision != -1)
-        {
             // If Revision is defined, include it in the new Version.
             return new Version(originalVersion.Major, originalVersion.Minor, newBuild, originalVersion.Revision);
-        }
-        else
-        {
-            // If Revision is not defined, create a new Version without the Revision component.
-            return new Version(originalVersion.Major, originalVersion.Minor, newBuild, 0);
-        }
+        // If Revision is not defined, create a new Version without the Revision component.
+        return new Version(originalVersion.Major, originalVersion.Minor, newBuild, 0);
     }
 }

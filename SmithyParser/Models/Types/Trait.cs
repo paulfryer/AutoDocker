@@ -5,6 +5,4 @@ public class Trait : Shape
     public Trait(string shapeId) : base(shapeId)
     {
     }
-
-    
 }
