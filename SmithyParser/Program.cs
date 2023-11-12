@@ -35,14 +35,13 @@ internal class Program
 
     private static async Task Generate(string smithyFileLocation)
     {
-        var start = new DateTime(2023, 10, 01);
-        var days = Convert.ToInt16(DateTime.UtcNow.Subtract(start).TotalDays);
-        var minutes = Convert.ToInt32(DateTime.UtcNow.Subtract(start).TotalMinutes);
-
         var smithyModel = ParseSmithyDocument(smithyFileLocation);
 
+        var versionProvider = new CodeArtifactPackageVersionProvider();
+        var packageName = $"{smithyModel.Namespace}.{smithyModel.Name}";
+        var buildVersion = await versionProvider.GetBuildVersion(packageName, repositoryName, domain);
 
-        await smithyModel.BuildAndPublishPackage("C#", new Version(days, minutes, 0, 0), domain, repositoryName);
+        await smithyModel.BuildAndPublishPackage("C#", buildVersion, domain, repositoryName);
     }
 
 

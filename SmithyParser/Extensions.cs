@@ -96,10 +96,10 @@ public static class Extensions
 
 
         var outputPath = ".";
-        var packageId = smithy.Name;
+        var packageId = $"{smithy.Namespace}.{smithy.Name}";
         var version =
             new NuGetVersion(
-                $"{newVersion.Major}.{newVersion.Minor}.{newVersion.Build}"); // Get this from previous build...
+                $"{newVersion.Major}.{newVersion.Minor}.{newVersion.Build}"); 
         var description = $"{smithy.Name} generated Nuget Package.";
 
 
