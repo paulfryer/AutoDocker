@@ -1,4 +1,7 @@
 ﻿using System.Text;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Formatting;
 using Newtonsoft.Json;
 using SmithyParser.Models;
 
@@ -68,7 +71,8 @@ internal class CSharpCodeGenerator : ICodeGenerator
         {
             var documentationTrait = service.Traits.Single(t => t.Key.ShapeId == "smithy.api#documentation");
             var documentation = JsonConvert.DeserializeObject<string>(documentationTrait.Value);
-            sb.AppendLine($"/// <summary>{documentation}</summary>");
+            var summaryXml = GenerateXmlDocumentation(documentation);
+            sb.AppendLine(summaryXml);
         }
 
         sb.AppendLine($"public interface I{service.Name}Service {{");
@@ -93,9 +97,31 @@ internal class CSharpCodeGenerator : ICodeGenerator
         // close the namespace.
         sb.AppendLine("}");
 
-        return sb.ToString();
+        var sourceCode = sb.ToString();
+        var formattedSourceCode = FormatCode(sourceCode);
+        return formattedSourceCode;
     }
 
+    private string FormatCode(string sourceCode)
+    {
+        var tree = CSharpSyntaxTree.ParseText(sourceCode);
+        var root = tree.GetRoot().NormalizeWhitespace();
+        var workspace = new AdhocWorkspace();
+        var formattedRoot = Formatter.Format(root, workspace);
+        return formattedRoot.ToFullString();
+    }
+
+    public string GenerateXmlDocumentation(string summary)
+    {
+        var lines = summary.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        var formattedSummary = "/// <summary>\n";
+        foreach (var line in lines)
+        {
+            formattedSummary += $"/// {System.Security.SecurityElement.Escape(line)}\n";
+        }
+        formattedSummary += "/// </summary>";
+        return formattedSummary;
+    }
 
     private static string GetDotNetTypeForSmithyType(string smithyType)
     {
