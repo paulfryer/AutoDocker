@@ -17,7 +17,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using System.Collections.Generic;");
-        sb.AppendLine("using System.ComponentModel");
+        sb.AppendLine("using System.ComponentModel;");
 
         sb.AppendLine($"namespace {model.Namespace} {{");
 
