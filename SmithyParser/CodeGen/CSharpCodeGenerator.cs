@@ -17,6 +17,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine("using System.ComponentModel");
 
         sb.AppendLine($"namespace {model.Namespace} {{");
 
@@ -74,6 +75,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine(summaryXml);
         }
 
+        sb.AppendLine($"[Description(\"{model.Namespace}.{model.Name}\")]");
         sb.AppendLine($"public interface I{service.Name}Service {{");
         foreach (var operation in model.Operations)
         {

@@ -1,4 +1,5 @@
-﻿using SmithyParser.Models;
+﻿
+using SmithyParser.Models;
 
 namespace SmithyParser.CodeGen;
 
