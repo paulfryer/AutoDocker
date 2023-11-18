@@ -25,12 +25,16 @@ internal class Program
         var smithyFiles = Directory.GetFiles(smithySourceDirectory, "*.smithy", SearchOption.AllDirectories);
 
         foreach (var smithyFile in smithyFiles)
-            await Generate(smithyFile);
+           await Generate(smithyFile);
     }
 
     private static async Task Generate(string smithyFileLocation)
     {
         var smithyModel = ParseSmithyDocument(smithyFileLocation);
+
+        // If no services are found skip, because we are only interested in services.
+        if (!smithyModel.Services.Any())
+            return;
 
         var versionProvider = new CodeArtifactPackageVersionProvider();
         var packageName = $"{smithyModel.Namespace}.{smithyModel.Name}";
@@ -64,7 +68,7 @@ internal class Program
 
     private static void CallSmithyCLIBuild(string smithyFileLocation)
     {
-        var smithyCommand = $"smithy build {smithyFileLocation}"; // Replace "your-argument" with the actual argument
+        var smithyCommand = $"smithy build C:\\Users\\Administrator\\source\\repos\\AutoDocker\\SmithyParser\\example\\*.smithy"; // {smithyFileLocation}"; // Replace "your-argument" with the actual argument
 
         var psi = new ProcessStartInfo
         {

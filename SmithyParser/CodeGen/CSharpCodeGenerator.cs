@@ -1,12 +1,29 @@
-﻿using System.Security;
+﻿using System.Reflection.Metadata;
+using System.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Formatting;
 using Newtonsoft.Json;
 using SmithyParser.Models;
+using SmithyParser.Models.Traits;
+using SmithyParser.Models.Types;
 
 namespace SmithyParser.CodeGen;
+
+
+public class TypeScriptCodeGenerator : ICodeGenerator
+{
+    public string GenerateCode(SmithyModel model)
+    {
+        throw new NotImplementedException();
+
+
+
+
+    }
+}
 
 internal class CSharpCodeGenerator : ICodeGenerator
 {
@@ -18,14 +35,31 @@ internal class CSharpCodeGenerator : ICodeGenerator
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using System.ComponentModel;");
+        sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
 
         sb.AppendLine($"namespace {model.Namespace} {{");
 
+        foreach (var e in model.Enums)
+        {
+            sb.AppendLine($"public enum {e.Name} {{");
+            sb.Append(string.Join(",\n", e.Members));
+            sb.AppendLine("}");
+        }
+
         foreach (var list in model.Lists)
         {
-            var listTarget = model.Structures.Single(s => s.ShapeId == list.Target);
-
-            sb.AppendLine($"public class {list.Name} : List<{listTarget.Name}> {{}}");
+            string listOfType;
+            if (list.Target.StartsWith("smithy.api"))
+            {
+                var targetStructure = new Structure(list.Target);
+                listOfType = GetDotNetTypeForSmithyType(targetStructure.Name);
+            }
+            else
+            {
+                var listTarget = model.Shapes.Single(s => s.ShapeId == list.Target);
+                listOfType = listTarget.Name;
+            }
+            sb.AppendLine($"public class {list.Name} : List<{listOfType}> {{}}");
         }
 
         foreach (var s in model.Structures)
@@ -75,7 +109,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine(summaryXml);
         }
 
-        sb.AppendLine($"[Description(\"{model.Namespace}.{model.Name}\")]");
+        sb.AppendLine($"[Description(\"{service.Namespace}.{service.Name}\")]");
         sb.AppendLine($"public interface I{service.Name}Service {{");
         foreach (var operation in model.Operations)
         {
@@ -93,6 +127,60 @@ internal class CSharpCodeGenerator : ICodeGenerator
         }
 
         sb.AppendLine("}");
+
+
+
+        // This is the API Controller part.
+        sb.AppendLine($"public class {model.Name}ServiceController: ControllerBase {{");
+        foreach (var operation in model.Operations)
+        {
+            if (operation.Traits.Any(t => t.Key.ShapeId == "smithy.api#http"))
+            {
+                var httpTraitJson = operation.Traits.Single(t => t.Key.ShapeId == "smithy.api#http");
+                var httpTrait = JsonConvert.DeserializeObject<HttpTrait>((string)httpTraitJson.Value);
+                var attributeName = ConvertToAttribute(httpTrait.Method);
+
+                var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
+                var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
+                
+                sb.AppendLine($"[{attributeName}(\"{httpTrait.Uri}\")]");
+                sb.Append($"public async Task<{outputStructure.Name}> {operation.Name}(");
+                var i = 0;
+                foreach (var member in inputStructure.Members)
+                {
+                    if (member.Traits.Any(t => t.Key.ShapeId == "smithy.api#httpLabel"))
+                    {
+                        string dotNetType;
+
+                        var targetSimpleType = new SimpleType(member.Target);
+                        if (targetSimpleType.Namespace == "smithy.api")
+                        {
+                            dotNetType = GetDotNetTypeForSmithyType(targetSimpleType.Name);
+                        }
+                        else
+                        {
+                            var simpleType = model.SimpleTypes.Single(st => st.ShapeId == member.Target);
+                            dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
+                        }
+
+                        if (i > 0)
+                            sb.Append(", ");
+                        sb.Append($"{dotNetType} {member.Name}");
+
+                    }
+
+                    i++;
+                }
+                sb.AppendLine(") {");
+
+                sb.AppendLine("// TODO: Implement this.");
+                sb.AppendLine($"return new {outputStructure.Name}();");
+
+                sb.AppendLine("}");
+            }
+        }
+        sb.AppendLine("}");
+
 
 
         // close the namespace.
@@ -121,6 +209,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
         return formattedSummary;
     }
 
+
     private static string GetDotNetTypeForSmithyType(string smithyType)
     {
         var map = new Dictionary<string, string>
@@ -128,7 +217,8 @@ internal class CSharpCodeGenerator : ICodeGenerator
             { "String", "string" },
             { "Float", "float" },
             { "Timestamp", "DateTime" },
-            { "Integer", "int" }
+            { "Integer", "int" },
+            {"Boolean", "bool"}
         };
 
         if (!map.ContainsKey(smithyType))
@@ -136,11 +226,39 @@ internal class CSharpCodeGenerator : ICodeGenerator
         return map[smithyType];
     }
 
+
     private static string GetDotNetTypeForSimpleType(string simpleType)
     {
-        var map = new Dictionary<string, string> { { "string", "string" } };
+        var map = new Dictionary<string, string>
+        {
+            { "string", "string" },
+            {"boolean", "bool"},
+            {"document", "string"},
+            {"integer", "int"},
+            {"long", "long"},
+            {"bigDecimal", "decimal"},
+        };
         if (!map.ContainsKey(simpleType))
             throw new Exception($"Could not find a .net mapping for simple type: {simpleType}");
         return map[simpleType];
+    }
+
+    public static string ConvertToAttribute(string httpMethod)
+    {
+        switch (httpMethod.ToUpper())
+        {
+            case "GET":
+                return "HttpGet";
+            case "POST":
+                return "HttpPost";
+            case "DELETE":
+                return "HttpDelete";
+            case "PUT":
+                return "HttpPut";
+            case "PATCH":
+                return "HttpPatch";
+            default:
+                throw new ArgumentException("Invalid HTTP method");
+        }
     }
 }

@@ -169,6 +169,7 @@ public static class Extensions
                     </PropertyGroup>
                     <ItemGroup>
                         <Compile Include=""{smithy.Name}.cs"" />
+                        <PackageReference Include=""Microsoft.AspNetCore.Mvc"" Version=""2.2.0"" />
                     </ItemGroup>
                 </Project>
             ";

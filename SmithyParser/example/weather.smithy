@@ -1,18 +1,22 @@
 $version: "2"
 namespace example.weather
 
+
+use smithy.framework#ValidationException
+
 /// Provides weather forecasts.
 @paginated(
     inputToken: "nextToken"
     outputToken: "nextToken"
     pageSize: "pageSize"
 )
+
 service Weather {
     version: "2006-03-01"
     resources: [City]
     operations: [GetCurrentTime]
 }
-
+//city resource
 resource City {
     identifiers: { cityId: CityId }
     read: GetCity
@@ -30,10 +34,11 @@ resource Forecast {
 string CityId
 
 @readonly
+@http(code: 200, method: "GET", uri: "/cities/{cityId}")
 operation GetCity {
     input: GetCityInput
     output: GetCityOutput
-    errors: [NoSuchResource]
+    errors: [ValidationException, NoSuchResource]
 }
 
 @input
@@ -41,6 +46,7 @@ structure GetCityInput {
     // "cityId" provides the identifier for the resource and
     // has to be marked as required.
     @required
+    @httpLabel
     cityId: CityId
 }
 
@@ -76,14 +82,18 @@ structure NoSuchResource {
 // return truncated results.
 @readonly
 @paginated(items: "items")
+@http(code: 200, method: "GET", uri: "/cities")
 operation ListCities {
     input: ListCitiesInput
     output: ListCitiesOutput
+    errors: [ValidationException]
 }
 
 @input
 structure ListCitiesInput {
+    @httpQuery("nextToken")
     nextToken: String
+    @httpQuery("pageSize")
     pageSize: Integer
 }
 
@@ -111,9 +121,11 @@ structure CitySummary {
 }
 
 @readonly
+@http(code: 200, method: "GET", uri: "/currentTime")
 operation GetCurrentTime {
     input: GetCurrentTimeInput
     output: GetCurrentTimeOutput
+    errors: [ValidationException]
 }
 
 @input
@@ -126,9 +138,11 @@ structure GetCurrentTimeOutput {
 }
 
 @readonly
+@http(code: 200, method: "GET", uri: "/forecast/{cityId}/{daysInTheFuture}")
 operation GetForecast {
     input: GetForecastInput
     output: GetForecastOutput
+    errors: [ValidationException]
 }
 
 // "cityId" provides the only identifier for the resource since
@@ -136,7 +150,11 @@ operation GetForecast {
 @input
 structure GetForecastInput {
     @required
+    @httpLabel
     cityId: CityId
+    @required
+    @httpLabel
+    daysInTheFuture: Integer
 }
 
 @output

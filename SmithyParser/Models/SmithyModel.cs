@@ -1,7 +1,10 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SmithyParser.Models.Types;
+using Enum = SmithyParser.Models.Types.Enum;
 
 namespace SmithyParser.Models;
 
@@ -24,6 +27,37 @@ public class SmithyModel
             {
                 default: throw new NotImplementedException(shapeType);
 
+                case "enum":
+                    
+                    var e = new Enum(shapeId);
+                    foreach (JProperty member in shapeProperty["members"])
+                    {
+                        var name = member.Name;
+                        e.Members.Add(name);
+                    }
+                    Shapes.Add(e);
+                    break;
+                case "map":
+                    var map = new Map(shapeId);
+                    map.Key = (string)shapeProperty["key"]["target"];
+                    map.Value = (string)shapeProperty["key"]["value"];
+                    Shapes.Add(map);
+                    break;
+
+
+
+                case "timestamp":
+                case "short":
+                case "long":
+                case "integer":
+                case "float":
+                case "double":
+                case "document":
+                case "byte":
+                case "boolean":
+                case "blob":
+                case "bigInteger":
+                case "bigDecimal":
                 case "string":
                     var simpleType = new SimpleType(shapeId)
                     {
@@ -35,11 +69,9 @@ public class SmithyModel
                         foreach (JProperty trait in traits)
                         {
                             var traitShapeId = trait.Name;
-                            var traitValue = (string)trait.Value;
+                            var traitValue = JsonConvert.SerializeObject(trait.Value);
                             simpleType.Traits.Add(traitShapeId, traitValue);
                         }
-
-
                     Shapes.Add(simpleType);
                     break;
 
@@ -179,8 +211,8 @@ public class SmithyModel
             }
         }
 
-        Namespace = Services.First().Namespace;
-        Name = Services.First().Name;
+        Namespace = Services.Any() ? Services.First().Namespace : string.Empty;
+        Name = Services.Any() ? Services.First().Name : string.Empty;
     }
 
     public string Namespace { get; set; }
@@ -200,4 +232,6 @@ public class SmithyModel
     public IEnumerable<List> Lists => Shapes.OfType<List>();
 
     public IEnumerable<SimpleType> SimpleTypes => Shapes.OfType<SimpleType>();
+
+    public IEnumerable<Enum> Enums => Shapes.OfType<Enum>();
 }
