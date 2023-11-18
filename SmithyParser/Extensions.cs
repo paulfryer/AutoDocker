@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Amazon.SecurityToken;
 using Amazon.SecurityToken.Model;
+using NuGet.Frameworks;
 using NuGet.Packaging;
+using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using SmithyParser.CodeGen;
 using SmithyParser.Models;
@@ -95,7 +97,7 @@ public static class Extensions
 
 
         var outputPath = ".";
-        var packageId = $"{smithy.Namespace}.{smithy.Name}";
+        var packageId = $"{smithy.Name}";
         var version =
             new NuGetVersion(
                 $"{newVersion.Major}.{newVersion.Minor}.{newVersion.Build}");
@@ -111,6 +113,7 @@ public static class Extensions
 
         packageBuilder.Authors.Add("Build Server");
 
+        
 
         var packageContents = new List<ManifestFile>
         {
@@ -123,6 +126,22 @@ public static class Extensions
         };
 
         packageBuilder.PopulateFiles(".", packageContents);
+
+
+        if (smithy.Using.Any())
+        {
+            var packageDependencies = smithy.Using.Select(usedModel => 
+                new PackageDependency(usedModel.Key, 
+                    new VersionRange(new 
+                        NuGetVersion(usedModel.Value.Major, usedModel.Value.Minor, usedModel.Value.Build)))).ToList();
+
+            // Add a dependency
+            var dependencySet = new PackageDependencyGroup(
+                NuGetFramework.Parse("net6.0"),
+                packageDependencies
+            );
+            packageBuilder.DependencyGroups.Add(dependencySet);
+        }
 
         // remove invalid characters that show in linux env.
         packageBuilder.Id = packageBuilder.Id.Replace("./", string.Empty);
@@ -158,6 +177,14 @@ public static class Extensions
             var sourceFilePath = Path.Combine(projectDirectory, $"{smithy.Name}.cs");
             File.WriteAllText(sourceFilePath, sourceCode, Encoding.UTF8);
 
+            string includeXml = "";
+            foreach (var usedModel in smithy.Using)
+                includeXml += $"<PackageReference Include=\"{usedModel.Key}\" Version=\"{usedModel.Value.Major}.{usedModel.Value.Minor}.{usedModel.Value.Build}\" />";
+
+            string includeMvcXml = "";
+            if (smithy.Services.Any(s => s.Namespace == smithy.Name))
+                includeMvcXml = "<PackageReference Include=\"Microsoft.AspNetCore.Mvc\" Version=\"2.2.0\" />";
+
             // Generate the project file content for a library
             var projectFileContent = $@"
                 <Project Sdk=""Microsoft.NET.Sdk"">
@@ -169,7 +196,8 @@ public static class Extensions
                     </PropertyGroup>
                     <ItemGroup>
                         <Compile Include=""{smithy.Name}.cs"" />
-                        <PackageReference Include=""Microsoft.AspNetCore.Mvc"" Version=""2.2.0"" />
+                        {includeMvcXml}
+                        {includeXml}
                     </ItemGroup>
                 </Project>
             ";
@@ -177,6 +205,50 @@ public static class Extensions
             // Save the project file (csproj)
             var projectFilePath = Path.Combine(projectDirectory, $"{smithy.Name}.csproj");
             File.WriteAllText(projectFilePath, projectFileContent, Encoding.UTF8);
+
+
+
+            // NUGET RESTORE......
+
+            // Create a new process start info
+            var processStartInfo1 = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"restore --no-cache \"{projectFilePath}\"",
+                WorkingDirectory = projectDirectory,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            // Start the process
+            using (var process = Process.Start(processStartInfo1))
+            {
+                // Read the output (standard and error)
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+
+                // Wait for the process to exit
+                process.WaitForExit();
+
+                // Handle the results
+                Console.WriteLine("Output:");
+                Console.WriteLine(output);
+                if (!string.IsNullOrEmpty(error))
+                {
+                    Console.WriteLine("Error:");
+                    Console.WriteLine(error);
+                }
+            }
+
+
+
+
+
+
+
+
 
             // Build the library using dotnet
             var processStartInfo = new ProcessStartInfo

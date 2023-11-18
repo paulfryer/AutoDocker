@@ -1,8 +1,11 @@
 ﻿using System.Diagnostics;
+using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using SmithyParser.CodeGen;
 using SmithyParser.Models;
+using SmithyParser.Models.Types;
 
 internal class Program
 {
@@ -24,23 +27,39 @@ internal class Program
 
         var smithyFiles = Directory.GetFiles(smithySourceDirectory, "*.smithy", SearchOption.AllDirectories);
 
-        foreach (var smithyFile in smithyFiles)
-           await Generate(smithyFile);
+        //foreach (var smithyFile in smithyFiles)
+        //   await Generate(smithyFile);
+
+
+        await Generate("C:\\Users\\Administrator\\source\\repos\\AutoDocker\\SmithyParser\\example\\example.weather.smithy");
+
     }
 
-    private static async Task Generate(string smithyFileLocation)
+    private static async Task<Version> Generate(string smithyFileLocation)
     {
         var smithyModel = ParseSmithyDocument(smithyFileLocation);
 
+        // This makes the whole thing recursive.
+        foreach (var usedModel in smithyModel.Using)
+        {
+            var usedModelFileLocation = Path.Combine(smithyFileLocation.Replace(smithyModel.Name, usedModel.Key));
+            var usedModelVersion = await Generate(usedModelFileLocation);
+            smithyModel.Using[usedModel.Key] = usedModelVersion;
+        }
+
+
         // If no services are found skip, because we are only interested in services.
-        if (!smithyModel.Services.Any())
-            return;
+        //if (!smithyModel.Services.Any())
+        //    return;
 
         var versionProvider = new CodeArtifactPackageVersionProvider();
-        var packageName = $"{smithyModel.Namespace}.{smithyModel.Name}";
+        var packageName = $"{smithyModel.Name}";
         var buildVersion = await versionProvider.GetBuildVersion(packageName, repositoryName, domain);
 
+        
+
         await smithyModel.BuildAndPublishPackage("C#", buildVersion, domain, repositoryName);
+        return buildVersion;
     }
 
 
@@ -57,12 +76,13 @@ internal class Program
         var buildJson = File.ReadAllText("build/smithy/source/build-info/smithy-build-info.json");
         var modelJson = File.ReadAllText("build/smithy/source/model/model.json");
 
+       
 
-        var b = JsonConvert.DeserializeObject<dynamic>(buildJson);
-        var m = JsonConvert.DeserializeObject<dynamic>(modelJson);
+        var smithyFileName = Path.GetFileName(smithyFileLocation);
+
+        var smithyModel = new SmithyModel(smithyFileName, modelJson, smithySource);
 
 
-        var smithyModel = new SmithyModel(m);
         return smithyModel;
     }
 

@@ -12,8 +12,26 @@ public class SmithyModel
 {
     public List<Shape> Shapes = new();
 
-    public SmithyModel(dynamic json)
+    public Dictionary<string, Version> Using = new();
+
+    public SmithyModel(string modelName, string modelJson, string smithySource)
     {
+        string pattern = @"^use.*$";
+        foreach (Match match in Regex.Matches(smithySource, pattern, RegexOptions.Multiline))
+        {
+            var usedShapeId = match.Value.Trim().Replace("use ", string.Empty);
+            var usedShape = new Structure(usedShapeId);
+            Using.TryAdd(usedShape.Namespace, null);
+        }
+
+
+        var json = JsonConvert.DeserializeObject<dynamic>(modelJson);
+
+        if (modelName.EndsWith(".smithy"))
+            modelName = modelName.Substring(0, modelName.Length - ".smithy".Length);
+        Name = modelName;
+        
+
         Version = (string)json.smithy;
         foreach (JToken shapeToken in json.shapes)
         {
@@ -211,11 +229,12 @@ public class SmithyModel
             }
         }
 
-        Namespace = Services.Any() ? Services.First().Namespace : string.Empty;
-        Name = Services.Any() ? Services.First().Name : string.Empty;
+        // If there is a service use that, else use the namespace from any shape.
+        //Namespace = Services.Any() ? Services.First().Namespace : 
+           //             Shapes.Any() ? Shapes.First().Namespace : string.Empty;
     }
 
-    public string Namespace { get; set; }
+    //public string Namespace { get; set; }
 
     public string Name { get; set; }
 

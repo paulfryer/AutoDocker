@@ -35,18 +35,23 @@ internal class CSharpCodeGenerator : ICodeGenerator
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using System.ComponentModel;");
-        sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
 
-        sb.AppendLine($"namespace {model.Namespace} {{");
+        if (model.Services.Any(s => s.Namespace == model.Name))
+            sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
 
-        foreach (var e in model.Enums)
+        foreach (var usedModel in model.Using)
+            sb.AppendLine($"using {usedModel.Key};");
+
+        sb.AppendLine($"namespace {model.Name} {{");
+
+        foreach (var e in model.Enums.Where(s => s.Namespace == model.Name))
         {
             sb.AppendLine($"public enum {e.Name} {{");
             sb.Append(string.Join(",\n", e.Members));
             sb.AppendLine("}");
         }
 
-        foreach (var list in model.Lists)
+        foreach (var list in model.Lists.Where(s => s.Namespace == model.Name))
         {
             string listOfType;
             if (list.Target.StartsWith("smithy.api"))
@@ -62,7 +67,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine($"public class {list.Name} : List<{listOfType}> {{}}");
         }
 
-        foreach (var s in model.Structures)
+        foreach (var s in model.Structures.Where(s => s.Namespace == model.Name))
         {
             var isError = s.Traits.Any(t => t.Key.ShapeId == "smithy.api#error");
 
@@ -96,92 +101,93 @@ internal class CSharpCodeGenerator : ICodeGenerator
         }
 
         // Services
-        if (model.Services.Count() > 1)
-            throw new Exception("Parser was designed to only handle 1 service per smithy model.");
-        var service = model.Services.First();
+        //if (model.Services.Count() > 1)
+       //     throw new Exception("Parser was designed to only handle 1 service per smithy model.");
+        //var service = model.Services.First();
 
-        var containsDocumentation = service.Traits.Any(t => t.Key.ShapeId == "smithy.api#documentation");
-        if (containsDocumentation)
+        foreach (var service in model.Services.Where(s => s.Namespace == model.Name))
         {
-            var documentationTrait = service.Traits.Single(t => t.Key.ShapeId == "smithy.api#documentation");
-            var documentation = JsonConvert.DeserializeObject<string>(documentationTrait.Value);
-            var summaryXml = GenerateXmlDocumentation(documentation);
-            sb.AppendLine(summaryXml);
-        }
-
-        sb.AppendLine($"[Description(\"{service.Namespace}.{service.Name}\")]");
-        sb.AppendLine($"public interface I{service.Name}Service {{");
-        foreach (var operation in model.Operations)
-        {
-            var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
-            var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
-
-
-            foreach (var errorShapeId in operation.Errors)
+            var containsDocumentation = service.Traits.Any(t => t.Key.ShapeId == "smithy.api#documentation");
+            if (containsDocumentation)
             {
-                var error = model.Shapes.Single(s => s.ShapeId == errorShapeId);
-                sb.AppendLine($"/// <exception cref=\"{error.Name}\"></exception>");
+                var documentationTrait = service.Traits.Single(t => t.Key.ShapeId == "smithy.api#documentation");
+                var documentation = JsonConvert.DeserializeObject<string>(documentationTrait.Value);
+                var summaryXml = GenerateXmlDocumentation(documentation);
+                sb.AppendLine(summaryXml);
             }
 
-            sb.AppendLine($"    public Task<{outputStructure.Name}> {operation.Name}({inputStructure.Name} input);");
-        }
-
-        sb.AppendLine("}");
-
-
-
-        // This is the API Controller part.
-        sb.AppendLine($"public class {model.Name}ServiceController: ControllerBase {{");
-        foreach (var operation in model.Operations)
-        {
-            if (operation.Traits.Any(t => t.Key.ShapeId == "smithy.api#http"))
+            sb.AppendLine($"[Description(\"{service.Namespace}.{service.Name}\")]");
+            sb.AppendLine($"public interface I{service.Name}Service {{");
+            foreach (var operation in model.Operations)
             {
-                var httpTraitJson = operation.Traits.Single(t => t.Key.ShapeId == "smithy.api#http");
-                var httpTrait = JsonConvert.DeserializeObject<HttpTrait>((string)httpTraitJson.Value);
-                var attributeName = ConvertToAttribute(httpTrait.Method);
-
                 var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
                 var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
-                
-                sb.AppendLine($"[{attributeName}(\"{httpTrait.Uri}\")]");
-                sb.Append($"public async Task<{outputStructure.Name}> {operation.Name}(");
-                var i = 0;
-                foreach (var member in inputStructure.Members)
+
+
+                foreach (var errorShapeId in operation.Errors)
                 {
-                    if (member.Traits.Any(t => t.Key.ShapeId == "smithy.api#httpLabel"))
-                    {
-                        string dotNetType;
-
-                        var targetSimpleType = new SimpleType(member.Target);
-                        if (targetSimpleType.Namespace == "smithy.api")
-                        {
-                            dotNetType = GetDotNetTypeForSmithyType(targetSimpleType.Name);
-                        }
-                        else
-                        {
-                            var simpleType = model.SimpleTypes.Single(st => st.ShapeId == member.Target);
-                            dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
-                        }
-
-                        if (i > 0)
-                            sb.Append(", ");
-                        sb.Append($"{dotNetType} {member.Name}");
-
-                    }
-
-                    i++;
+                    var error = model.Shapes.Single(s => s.ShapeId == errorShapeId);
+                    sb.AppendLine($"/// <exception cref=\"{error.Name}\"></exception>");
                 }
-                sb.AppendLine(") {");
 
-                sb.AppendLine("// TODO: Implement this.");
-                sb.AppendLine($"return new {outputStructure.Name}();");
-
-                sb.AppendLine("}");
+                sb.AppendLine(
+                    $"    public Task<{outputStructure.Name}> {operation.Name}({inputStructure.Name} input);");
             }
+
+            sb.AppendLine("}");
+
+            // This is the API Controller part.
+            sb.AppendLine($"public class {service.Name}ServiceController: ControllerBase {{");
+            foreach (var operation in model.Operations)
+            {
+                if (operation.Traits.Any(t => t.Key.ShapeId == "smithy.api#http"))
+                {
+                    var httpTraitJson = operation.Traits.Single(t => t.Key.ShapeId == "smithy.api#http");
+                    var httpTrait = JsonConvert.DeserializeObject<HttpTrait>((string)httpTraitJson.Value);
+                    var attributeName = ConvertToAttribute(httpTrait.Method);
+
+                    var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
+                    var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
+
+                    sb.AppendLine($"[{attributeName}(\"{httpTrait.Uri}\")]");
+                    sb.Append($"public async Task<{outputStructure.Name}> {operation.Name}(");
+                    var i = 0;
+                    foreach (var member in inputStructure.Members)
+                    {
+                        if (member.Traits.Any(t => t.Key.ShapeId == "smithy.api#httpLabel"))
+                        {
+                            string dotNetType;
+
+                            var targetSimpleType = new SimpleType(member.Target);
+                            if (targetSimpleType.Namespace == "smithy.api")
+                            {
+                                dotNetType = GetDotNetTypeForSmithyType(targetSimpleType.Name);
+                            }
+                            else
+                            {
+                                var simpleType = model.SimpleTypes.Single(st => st.ShapeId == member.Target);
+                                dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
+                            }
+
+                            if (i > 0)
+                                sb.Append(", ");
+                            sb.Append($"{dotNetType} {member.Name}");
+
+                        }
+
+                        i++;
+                    }
+                    sb.AppendLine(") {");
+
+                    sb.AppendLine("// TODO: Implement this.");
+                    sb.AppendLine($"return new {outputStructure.Name}();");
+
+                    sb.AppendLine("}");
+                }
+            }
+            sb.AppendLine("}");
+
         }
-        sb.AppendLine("}");
-
-
 
         // close the namespace.
         sb.AppendLine("}");
