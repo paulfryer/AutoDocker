@@ -1,9 +1,11 @@
-﻿using System.Reflection.Metadata;
+﻿using System.ComponentModel;
+using System.Globalization;
 using System.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using Newtonsoft.Json;
 using SmithyParser.Models;
@@ -12,16 +14,11 @@ using SmithyParser.Models.Types;
 
 namespace SmithyParser.CodeGen;
 
-
 public class TypeScriptCodeGenerator : ICodeGenerator
 {
     public string GenerateCode(SmithyModel model)
     {
         throw new NotImplementedException();
-
-
-
-
     }
 }
 
@@ -35,6 +32,8 @@ internal class CSharpCodeGenerator : ICodeGenerator
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using System.ComponentModel;");
+        sb.AppendLine("using System.Globalization;");
+        sb.AppendLine("using System.ComponentModel.DataAnnotations;");
 
         if (model.Services.Any(s => s.Namespace == model.Name))
             sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
@@ -43,6 +42,36 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine($"using {usedModel.Key};");
 
         sb.AppendLine($"namespace {model.Name} {{");
+
+        foreach (var st in model.SimpleTypes.Where(s => s.Namespace == model.Name))
+        {
+            var dotnetType = GetDotNetTypeForSimpleType(st.Type);
+
+            sb.AppendLine($"public class {st.Name}TypeConverter : TypeConverter {{");
+            sb.AppendLine(@"public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+                            {
+                                return sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
+                            }");
+                sb.AppendLine(
+                    $"public override object ConvertFrom({nameof(ITypeDescriptorContext)} context, {nameof(CultureInfo)} culture, object value) {{");
+                sb.AppendLine($"if (value is string stringValue) return new {st.Name} {{ Value = stringValue }};");
+                sb.AppendLine("return base.ConvertFrom(context, culture, value); }");
+            sb.AppendLine("}");
+
+            sb.AppendLine($"[TypeConverter(typeof({st.Name}TypeConverter))]");
+            sb.AppendLine($"public struct {st.Name} {{");
+            if (st.Traits.Any(t => t.Key == "smithy.api#pattern"))
+            {
+                var regEx = st.Traits["smithy.api#pattern"];
+                sb.AppendLine($"[RegularExpression({regEx})]");
+            }
+
+            sb.AppendLine($"public {dotnetType} Value {{get; set;}}");
+            sb.AppendLine("}");
+
+
+        }
+
 
         foreach (var e in model.Enums.Where(s => s.Namespace == model.Name))
         {
@@ -64,6 +93,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
                 var listTarget = model.Shapes.Single(s => s.ShapeId == list.Target);
                 listOfType = listTarget.Name;
             }
+
             sb.AppendLine($"public class {list.Name} : List<{listOfType}> {{}}");
         }
 
@@ -71,10 +101,23 @@ internal class CSharpCodeGenerator : ICodeGenerator
         {
             var isError = s.Traits.Any(t => t.Key.ShapeId == "smithy.api#error");
 
+            if (isError)
+            {
+
+            }
 
             sb.AppendLine($"public class {s.Name} {(isError ? ": Exception " : string.Empty)}{{");
 
             foreach (var m in s.Members)
+            {
+                
+                foreach (var trait in m.Traits)
+                {
+                    if (trait.Key.ShapeId == "smithy.api#required")
+                        sb.AppendLine("[Required]");
+                }
+
+
                 if (m.Target.StartsWith("smithy.api#"))
                 {
                     var smithyType = m.Target.Split('#')[1];
@@ -86,8 +129,10 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     var simpleType = model.SimpleTypes.SingleOrDefault(s => s.ShapeId == m.Target);
                     if (simpleType != null)
                     {
-                        var dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
-                        sb.AppendLine($"    public {dotNetType} {m.Name} {{ get; set; }}");
+                        //var dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
+                        //sb.AppendLine($"    public {dotNetType} {m.Name} {{ get; set; }}");
+
+                        sb.AppendLine($"public {simpleType.Name} {m.Name} {{get;set;}}");
                     }
 
                     var subStructure = model.Structures.SingleOrDefault(s => s.ShapeId == m.Target);
@@ -96,13 +141,15 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     var list = model.Lists.SingleOrDefault(l => l.ShapeId == m.Target);
                     if (list != null) sb.AppendLine($"    public {list.Name} {m.Name} {{ get; set; }}");
                 }
+            }
+
 
             sb.AppendLine("}");
         }
 
         // Services
         //if (model.Services.Count() > 1)
-       //     throw new Exception("Parser was designed to only handle 1 service per smithy model.");
+        //     throw new Exception("Parser was designed to only handle 1 service per smithy model.");
         //var service = model.Services.First();
 
         foreach (var service in model.Services.Where(s => s.Namespace == model.Name))
@@ -127,7 +174,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
                 foreach (var errorShapeId in operation.Errors)
                 {
                     var error = model.Shapes.Single(s => s.ShapeId == errorShapeId);
-                    sb.AppendLine($"/// <exception cref=\"{error.Name}\"></exception>");
+                    sb.AppendLine($"/// <exception cref=\"{error.Namespace}.{error.Name}\"></exception>");
                 }
 
                 sb.AppendLine(
@@ -138,8 +185,14 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
             // This is the API Controller part.
             sb.AppendLine($"public class {service.Name}ServiceController: ControllerBase {{");
+
+            sb.AppendLine($"private readonly I{service.Name}Service service;");
+
+            sb.AppendLine($"public {service.Name}ServiceController(I{service.Name}Service service) {{");
+            sb.AppendLine("     this.service = service;");
+            sb.AppendLine("}");
+
             foreach (var operation in model.Operations)
-            {
                 if (operation.Traits.Any(t => t.Key.ShapeId == "smithy.api#http"))
                 {
                     var httpTraitJson = operation.Traits.Single(t => t.Key.ShapeId == "smithy.api#http");
@@ -154,7 +207,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     var i = 0;
                     foreach (var member in inputStructure.Members)
                     {
-                        if (member.Traits.Any(t => t.Key.ShapeId == "smithy.api#httpLabel"))
+                        if (member.Traits.Any(t => t.Key.ShapeId == "smithy.api#httpLabel" || t.Key.ShapeId == "smithy.api#httpQuery"))
                         {
                             string dotNetType;
 
@@ -166,27 +219,39 @@ internal class CSharpCodeGenerator : ICodeGenerator
                             else
                             {
                                 var simpleType = model.SimpleTypes.Single(st => st.ShapeId == member.Target);
-                                dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
+                                //dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
+                                dotNetType = simpleType.Name;
                             }
 
                             if (i > 0)
                                 sb.Append(", ");
                             sb.Append($"{dotNetType} {member.Name}");
-
                         }
 
                         i++;
                     }
+
                     sb.AppendLine(") {");
 
-                    sb.AppendLine("// TODO: Implement this.");
-                    sb.AppendLine($"return new {outputStructure.Name}();");
+                    sb.AppendLine($"var input = new {inputStructure.Name}();");
+
+                    foreach (var member in inputStructure.Members)
+                    {
+                        //if (member.Traits.Any(t => t.Key.ShapeId == "smithy.api#httpQuery"))
+                        //{
+                        //    sb.AppendLine($"")
+                        //}
+                        //else 
+                        sb.AppendLine($"input.{member.Name} = {member.Name};");
+                    }
+
+                    sb.AppendLine($"var output = await service.{operation.Name}(input);");
+                    sb.AppendLine($"return output;");
 
                     sb.AppendLine("}");
                 }
-            }
-            sb.AppendLine("}");
 
+            sb.AppendLine("}");
         }
 
         // close the namespace.
@@ -224,7 +289,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
             { "Float", "float" },
             { "Timestamp", "DateTime" },
             { "Integer", "int" },
-            {"Boolean", "bool"}
+            { "Boolean", "bool" }
         };
 
         if (!map.ContainsKey(smithyType))
@@ -238,11 +303,11 @@ internal class CSharpCodeGenerator : ICodeGenerator
         var map = new Dictionary<string, string>
         {
             { "string", "string" },
-            {"boolean", "bool"},
-            {"document", "string"},
-            {"integer", "int"},
-            {"long", "long"},
-            {"bigDecimal", "decimal"},
+            { "boolean", "bool" },
+            { "document", "string" },
+            { "integer", "int" },
+            { "long", "long" },
+            { "bigDecimal", "decimal" }
         };
         if (!map.ContainsKey(simpleType))
             throw new Exception($"Could not find a .net mapping for simple type: {simpleType}");
