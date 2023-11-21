@@ -165,7 +165,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
             sb.AppendLine($"[Description(\"{service.Namespace}.{service.Name}\")]");
             sb.AppendLine($"public interface I{service.Name}Service {{");
-            foreach (var operation in model.Operations)
+            foreach (var operation in model.Operations.Where(s => s.Namespace == model.Name))
             {
                 var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
                 var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
@@ -184,6 +184,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine("}");
 
             // This is the API Controller part.
+            sb.AppendLine($"[Route(\"{service.Name.ToLower()}\")]");
             sb.AppendLine($"[ApiController]");
             sb.AppendLine($"public class {service.Name}ServiceController: ControllerBase {{");
 
@@ -193,7 +194,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine("     this.service = service;");
             sb.AppendLine("}");
 
-            foreach (var operation in model.Operations)
+            foreach (var operation in model.Operations.Where(s => s.Namespace == model.Name))
                 if (operation.Traits.Any(t => t.Key.ShapeId == "smithy.api#http"))
                 {
                     var httpTraitJson = operation.Traits.Single(t => t.Key.ShapeId == "smithy.api#http");
@@ -203,7 +204,10 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
                     var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
 
-                    sb.AppendLine($"[{attributeName}(\"{httpTrait.Uri}\")]");
+                    // Notice we are removing the starting / so we can combine it with the controller level service name.
+                    var operationRoute = httpTrait.Uri.TrimStart('/');
+
+                    sb.AppendLine($"[{attributeName}(\"{operationRoute}\")]");
                     sb.Append($"public async Task<{outputStructure.Name}> {operation.Name}(");
                     var i = 0;
                     foreach (var member in inputStructure.Members)
@@ -260,7 +264,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
             // Generate a mock.
             sb.AppendLine($"public class Mock{service.Name}Service : I{service.Name}Service {{");
-            foreach (var operation in model.Operations)
+            foreach (var operation in model.Operations.Where(s => s.Namespace == model.Name))
             {
                 var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
                 var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
