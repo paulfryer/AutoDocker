@@ -184,6 +184,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine("}");
 
             // This is the API Controller part.
+            sb.AppendLine($"[ApiController]");
             sb.AppendLine($"public class {service.Name}ServiceController: ControllerBase {{");
 
             sb.AppendLine($"private readonly I{service.Name}Service service;");
@@ -219,8 +220,8 @@ internal class CSharpCodeGenerator : ICodeGenerator
                             else
                             {
                                 var simpleType = model.SimpleTypes.Single(st => st.ShapeId == member.Target);
-                                //dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
-                                dotNetType = simpleType.Name;
+                                dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
+                                //dotNetType = simpleType.Name;
                             }
 
                             if (i > 0)
@@ -237,12 +238,15 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
                     foreach (var member in inputStructure.Members)
                     {
-                        //if (member.Traits.Any(t => t.Key.ShapeId == "smithy.api#httpQuery"))
-                        //{
-                        //    sb.AppendLine($"")
-                        //}
-                        //else 
-                        sb.AppendLine($"input.{member.Name} = {member.Name};");
+                        var simpleType = model.SimpleTypes.SingleOrDefault(st => st.ShapeId == member.Target);
+                        // if the type is a simple type, we have to convert it to a struct.
+                        if (simpleType != null)
+                        {
+
+                            sb.AppendLine(
+                                $"input.{member.Name} = ({simpleType.Name})TypeDescriptor.GetConverter(typeof({simpleType.Name})).ConvertFrom({member.Name})!;");
+                        } else 
+                            sb.AppendLine($"input.{member.Name} = {member.Name};");
                     }
 
                     sb.AppendLine($"var output = await service.{operation.Name}(input);");
@@ -252,6 +256,33 @@ internal class CSharpCodeGenerator : ICodeGenerator
                 }
 
             sb.AppendLine("}");
+
+
+            // Generate a mock.
+            sb.AppendLine($"public class Mock{service.Name}Service : I{service.Name}Service {{");
+            foreach (var operation in model.Operations)
+            {
+                var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
+                var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
+
+
+                foreach (var errorShapeId in operation.Errors)
+                {
+                    var error = model.Shapes.Single(s => s.ShapeId == errorShapeId);
+                    sb.AppendLine($"/// <exception cref=\"{error.Namespace}.{error.Name}\"></exception>");
+                }
+
+                sb.AppendLine(
+                    $"    public async Task<{outputStructure.Name}> {operation.Name}({inputStructure.Name} input) {{");
+
+                sb.AppendLine($"var output = new {outputStructure.Name}();");
+
+                sb.AppendLine("return output;");
+
+                sb.AppendLine("}");
+            }
+            sb.AppendLine("}");
+
         }
 
         // close the namespace.
