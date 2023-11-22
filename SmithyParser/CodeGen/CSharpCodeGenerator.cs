@@ -54,7 +54,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
                             }");
                 sb.AppendLine(
                     $"public override object ConvertFrom({nameof(ITypeDescriptorContext)} context, {nameof(CultureInfo)} culture, object value) {{");
-                sb.AppendLine($"if (value is string stringValue) return new {st.Name} {{ Value = stringValue }};");
+                sb.AppendLine($"if (value is {dotnetType} refVal) return new {st.Name} {{ Value = refVal }};");
                 sb.AppendLine("return base.ConvertFrom(context, culture, value); }");
             sb.AppendLine("}");
 
@@ -184,7 +184,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine("}");
 
             // This is the API Controller part.
-            sb.AppendLine($"[Route(\"{service.Name.ToLower()}\")]");
+            //sb.AppendLine($"[Route(\"{service.Name.ToLower()}\")]");
             sb.AppendLine($"[ApiController]");
             sb.AppendLine($"public class {service.Name}ServiceController: ControllerBase {{");
 
@@ -205,7 +205,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
 
                     // Notice we are removing the starting / so we can combine it with the controller level service name.
-                    var operationRoute = httpTrait.Uri.TrimStart('/');
+                    var operationRoute = httpTrait.Uri; //.TrimStart('/');
 
                     sb.AppendLine($"[{attributeName}(\"{operationRoute}\")]");
                     sb.Append($"public async Task<{outputStructure.Name}> {operation.Name}(");
@@ -214,7 +214,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     {
                         if (member.Traits.Any(t => t.Key.ShapeId == "smithy.api#httpLabel" || t.Key.ShapeId == "smithy.api#httpQuery"))
                         {
-                            string dotNetType;
+                            string dotNetType = "";
 
                             var targetSimpleType = new SimpleType(member.Target);
                             if (targetSimpleType.Namespace == "smithy.api")
@@ -223,8 +223,16 @@ internal class CSharpCodeGenerator : ICodeGenerator
                             }
                             else
                             {
-                                var simpleType = model.SimpleTypes.Single(st => st.ShapeId == member.Target);
-                                dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
+                                var simpleType = model.SimpleTypes.SingleOrDefault(st => st.ShapeId == member.Target);
+                                if (simpleType != null)
+                                    dotNetType = GetDotNetTypeForSimpleType(simpleType.Type);
+                                else
+                                {
+                                    var listType = model.Lists.SingleOrDefault(l => l.ShapeId == member.Target);
+                                    if (listType != null)
+                                        dotNetType = listType.Name;
+                                } 
+
                                 //dotNetType = simpleType.Name;
                             }
 
