@@ -301,7 +301,8 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine("}");
 
             // Generate tests
-            sb.AppendLine($"public class {service.Name}ServiceTests {{");
+            sb.AppendLine($"public abstract class {service.Name}ServiceTests<T{service.Name}Service> where T{service.Name}Service: I{service.Name}Service {{");
+            sb.AppendLine("private readonly Random random = new();");
             sb.AppendLine($"private readonly I{service.Name}Service {service.Name}Service;");
 
             sb.AppendLine("// default constructor");
@@ -318,15 +319,19 @@ internal class CSharpCodeGenerator : ICodeGenerator
                 var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
                 sb.AppendLine("[Fact]");
                 sb.AppendLine($"public async Task {operation.Name}Output_IsNotNull() {{");
-                sb.AppendLine($"var input = new {operation.Name}Input {{");
-                //SetMockOutput(model, sb, inputStructure);
-                sb.AppendLine("};");
-                sb.AppendLine($"var output  = await {service.Name}Service.{operation.Name}(input);");
+                sb.AppendLine($"var output  = await {service.Name}Service.{operation.Name}({operation.Name}Output_IsNotNull_Input);");
                 sb.AppendLine("Assert.NotNull(output);");
                 sb.AppendLine("}");
+
+                sb.AppendLine($"public virtual {operation.Name}Input {operation.Name}Output_IsNotNull_Input => new() {{");
+                SetMockOutput(model, sb, inputStructure);
+                sb.AppendLine("};");
             }
 
             sb.AppendLine("}");
+
+            sb.AppendLine(
+                $"public class Mock{service.Name}ServiceTests : WeatherServiceTests<Mock{service.Name}Service> {{}}");
 
         }
 
