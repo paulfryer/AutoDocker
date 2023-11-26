@@ -35,6 +35,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
         sb.AppendLine("using System.ComponentModel;");
         sb.AppendLine("using System.Globalization;");
         sb.AppendLine("using System.ComponentModel.DataAnnotations;");
+        sb.AppendLine("using Xunit;");
 
         if (model.Services.Any(s => s.Namespace == model.Name))
             sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
@@ -297,8 +298,36 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
                 sb.AppendLine("}");
             }
+            sb.AppendLine("}");
+
+            // Generate tests
+            sb.AppendLine($"public class {service.Name}ServiceTests {{");
+            sb.AppendLine($"private readonly I{service.Name}Service {service.Name}Service;");
+
+            sb.AppendLine("// default constructor");
+            sb.AppendLine($"public {service.Name}ServiceTests() {{");
+            sb.AppendLine($"{service.Name}Service = new Mock{service.Name}Service();");
+            sb.AppendLine("}");
+
+            sb.AppendLine($"public {service.Name}ServiceTests(I{service.Name}Service service) {{");
+            sb.AppendLine($"{service.Name}Service = service;");
+            sb.AppendLine("}");
+
+            foreach (var operation in model.Operations.Where(s => s.Namespace == model.Name))
+            {
+                var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
+                sb.AppendLine("[Fact]");
+                sb.AppendLine($"public async Task {operation.Name}Output_IsNotNull() {{");
+                sb.AppendLine($"var input = new {operation.Name}Input {{");
+                //SetMockOutput(model, sb, inputStructure);
+                sb.AppendLine("};");
+                sb.AppendLine($"var output  = await {service.Name}Service.{operation.Name}(input);");
+                sb.AppendLine("Assert.NotNull(output);");
+                sb.AppendLine("}");
+            }
 
             sb.AppendLine("}");
+
         }
 
         // close the namespace.

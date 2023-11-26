@@ -196,6 +196,8 @@ public static class Extensions
                     </PropertyGroup>
                     <ItemGroup>
                         <Compile Include=""{smithy.Name}.cs"" />
+                        <PackageReference Include=""xunit.assert"" Version=""2.6.2"" />
+                        <PackageReference Include=""xunit.extensibility.core"" Version=""2.6.2"" />
                         {includeMvcXml}
                         {includeXml}
                     </ItemGroup>

@@ -31,7 +31,7 @@ internal class Program
         //   await Generate(smithyFile);
 
 
-        await Generate("C:\\Users\\Administrator\\source\\repos\\AutoDocker\\SmithyParser\\example\\com.amazonaws.guidance.productsubs.smithy");
+        await Generate("C:\\Users\\Administrator\\source\\repos\\AutoDocker\\SmithyParser\\example\\example.weather.smithy");
 
     }
 
