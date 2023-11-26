@@ -313,15 +313,16 @@ internal class CSharpCodeGenerator : ICodeGenerator
             foreach (var operation in model.Operations.Where(s => s.Namespace == model.Name))
             {
                 var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
+                var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
                 sb.AppendLine("[Fact]");
                 sb.AppendLine($"public async Task {operation.Name}() {{");
                 sb.AppendLine($"var input = {operation.Name}Input;");
-                sb.AppendLine($"Validate{operation.Name}Input(input);");
+                sb.AppendLine($"Validate{inputStructure.Name}(input);");
                 sb.AppendLine($"var output  = await {service.Name}Service.{operation.Name}({operation.Name}Input);");
-                sb.AppendLine($"Validate{operation.Name}Output(output);");
+                sb.AppendLine($"Validate{outputStructure.Name}(output);");
                 sb.AppendLine("}");
 
-                sb.AppendLine($"public virtual {operation.Name}Input {operation.Name}Input => new() {{");
+                sb.AppendLine($"public virtual {inputStructure.Name} {operation.Name}Input => new() {{");
                 SetMockProperties(model, sb, inputStructure);
                 sb.AppendLine("};");
             }
@@ -329,6 +330,10 @@ internal class CSharpCodeGenerator : ICodeGenerator
             foreach (var list in model.Lists.Where(s => s.Namespace == model.Name))
             {
                 var listTarget = new Structure(list.Target);
+
+                // Skip things like lists of strings.
+                if (listTarget.Namespace == "smithy.api")
+                    continue;
 
                 sb.AppendLine($"public virtual void Validate{list.Name}({list.Name} list) {{");
                     sb.AppendLine("foreach (var item in list) {");
@@ -350,13 +355,19 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     var listType = model.Lists.SingleOrDefault(l => l.ShapeId == m.Target);
                     if (listType != null)
                     {
-                        sb.AppendLine($"Validate{listType.Name}(structure.{m.Name});");
+                        // Skip lists that are things like a list of Strings.
+                        if (!listType.Target.StartsWith("smithy.api"))
+                        {
+                            sb.AppendLine($"if (structure.{m.Name} is not null) Validate{listType.Name}(structure.{m.Name});");
+                        }
+
                     }
 
                     var subType = model.Structures.SingleOrDefault(s => s.ShapeId == m.Target);
                     if (subType != null)
                     {
-                        sb.AppendLine($"Validate{subType.Name}(structure.{m.Name});");
+                        
+                        sb.AppendLine($"if (structure.{m.Name} is not null) Validate{subType.Name}(structure.{m.Name});");
                     }
                 }
                 sb.AppendLine("}");
@@ -446,18 +457,53 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
                         for (var l = 0; l < 5; l++)
                         {
+                            // Don't build lists of recursive items, else you'll get an endless loop in unit test.
+                            var listTarget = model.Shapes.SingleOrDefault(s => s.ShapeId == list.Target);
+                            if (listTarget != null && listTarget.ShapeId == shape.ShapeId)
+                                continue;
+
                             if (l > 0) sb.Append(',');
 
                             if (list.Target.StartsWith("smithy.api"))
                             {
-                                var simpleType = new SimpleType(list.Target);
-                                SetMockProperties(model, sb, simpleType);
+                                var smithyTypeName = list.Target.Split('#')[1];
+                                dotNetType = GetDotNetTypeForSmithyType(smithyTypeName);
+
+                                switch (dotNetType)
+                                {
+                                    case "string?":
+                                        sb.AppendLine($"\"Mocked value for {member.Name}\"");
+                                        break;
+                                    case "DateTime?":
+                                        sb.AppendLine($"DateTime.UtcNow");
+                                        break;
+                                    case "float?":
+                                        sb.AppendLine($"random.NextSingle()");
+                                        break;
+                                    case "bool?":
+                                        sb.AppendLine($"random.NextDouble() > 0.5");
+                                        break;
+                                    case "int?":
+                                        sb.AppendLine($"random.Next()");
+                                        break;
+                                    default:
+                                        throw new Exception(
+                                            $"Mocked implementation for Dot Net Type: {dotNetType} not implemented.");
+                                }
                             }
                             else
                             {
-                                var listTarget = model.Shapes.Single(s => s.ShapeId == list.Target);
+
                                 sb.AppendLine($"new {listTarget.Name} {{");
+
+                                // Avoid infinite recursion
+                                if (listTarget.ShapeId == shape.ShapeId)
+                                {
+                                    goto skip;
+                                }
                                 SetMockProperties(model, sb, listTarget);
+
+                                skip:                
                                 sb.AppendLine("}");
                             }
 
