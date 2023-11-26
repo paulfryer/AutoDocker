@@ -139,10 +139,10 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
 
                     var subStructure = model.Structures.SingleOrDefault(s => s.ShapeId == m.Target);
-                    if (subStructure != null) sb.AppendLine($"    public {subStructure.Name} {m.Name} {{ get; set; }}");
+                    if (subStructure != null) sb.AppendLine($"public {subStructure.Name}? {m.Name} {{ get; set; }}");
 
                     var list = model.Lists.SingleOrDefault(l => l.ShapeId == m.Target);
-                    if (list != null) sb.AppendLine($"    public {list.Name} {m.Name} {{ get; set; }}");
+                    if (list != null) sb.AppendLine($"public {list.Name}? {m.Name} {{ get; set; }}");
                 }
             }
 
@@ -291,7 +291,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
                 
                 sb.AppendLine($"var output = new {outputStructure.Name} {{");
 
-                SetMockOutput(model, sb, outputStructure);
+                SetMockProperties(model, sb, outputStructure);
 
                 sb.AppendLine("};");
                 sb.AppendLine("return output;");
@@ -301,16 +301,12 @@ internal class CSharpCodeGenerator : ICodeGenerator
             sb.AppendLine("}");
 
             // Generate tests
-            sb.AppendLine($"public abstract class {service.Name}ServiceTests<T{service.Name}Service> where T{service.Name}Service: I{service.Name}Service {{");
+            sb.AppendLine($"public abstract class {service.Name}ServiceTests {{");
             sb.AppendLine("private readonly Random random = new();");
             sb.AppendLine($"private readonly I{service.Name}Service {service.Name}Service;");
 
-            sb.AppendLine("// default constructor");
-            sb.AppendLine($"public {service.Name}ServiceTests() {{");
-            sb.AppendLine($"{service.Name}Service = new Mock{service.Name}Service();");
-            sb.AppendLine("}");
 
-            sb.AppendLine($"public {service.Name}ServiceTests(I{service.Name}Service service) {{");
+            sb.AppendLine($"protected {service.Name}ServiceTests(I{service.Name}Service service) {{");
             sb.AppendLine($"{service.Name}Service = service;");
             sb.AppendLine("}");
 
@@ -318,14 +314,52 @@ internal class CSharpCodeGenerator : ICodeGenerator
             {
                 var inputStructure = model.Structures.Single(s => s.ShapeId == operation.Input);
                 sb.AppendLine("[Fact]");
-                sb.AppendLine($"public async Task {operation.Name}Output_IsNotNull() {{");
-                sb.AppendLine($"var output  = await {service.Name}Service.{operation.Name}({operation.Name}Output_IsNotNull_Input);");
-                sb.AppendLine("Assert.NotNull(output);");
+                sb.AppendLine($"public async Task {operation.Name}() {{");
+                sb.AppendLine($"var input = {operation.Name}Input;");
+                sb.AppendLine($"Validate{operation.Name}Input(input);");
+                sb.AppendLine($"var output  = await {service.Name}Service.{operation.Name}({operation.Name}Input);");
+                sb.AppendLine($"Validate{operation.Name}Output(output);");
                 sb.AppendLine("}");
 
-                sb.AppendLine($"public virtual {operation.Name}Input {operation.Name}Output_IsNotNull_Input => new() {{");
-                SetMockOutput(model, sb, inputStructure);
+                sb.AppendLine($"public virtual {operation.Name}Input {operation.Name}Input => new() {{");
+                SetMockProperties(model, sb, inputStructure);
                 sb.AppendLine("};");
+            }
+
+            foreach (var list in model.Lists.Where(s => s.Namespace == model.Name))
+            {
+                var listTarget = new Structure(list.Target);
+
+                sb.AppendLine($"public virtual void Validate{list.Name}({list.Name} list) {{");
+                    sb.AppendLine("foreach (var item in list) {");
+                    sb.AppendLine($"Validate{listTarget.Name}(item);");
+                    sb.AppendLine("}");
+                sb.AppendLine("}");
+            }
+
+            foreach (var s in model.Structures.Where(s => s.Namespace == model.Name))
+            {
+                sb.AppendLine($"public virtual void Validate{s.Name}({s.Name} structure) {{");
+                foreach (var m in s.Members)
+                {
+                    if (m.Traits.Any(t => t.Key.ShapeId == "smithy.api#required"))
+                    {
+                        sb.AppendLine($"Assert.True(structure.{m.Name} != null, $\"The property {{nameof(structure.{m.Name})}} on type {{nameof({s.Name})}} is required, but was null.\");");
+                    }
+
+                    var listType = model.Lists.SingleOrDefault(l => l.ShapeId == m.Target);
+                    if (listType != null)
+                    {
+                        sb.AppendLine($"Validate{listType.Name}(structure.{m.Name});");
+                    }
+
+                    var subType = model.Structures.SingleOrDefault(s => s.ShapeId == m.Target);
+                    if (subType != null)
+                    {
+                        sb.AppendLine($"Validate{subType.Name}(structure.{m.Name});");
+                    }
+                }
+                sb.AppendLine("}");
             }
 
             sb.AppendLine("}");
@@ -345,7 +379,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
         return formattedSourceCode;
     }
 
-    public void SetMockOutput(SmithyModel model, StringBuilder sb, Shape shape)
+    public void SetMockProperties(SmithyModel model, StringBuilder sb, Shape shape)
     {
         switch (shape)
         {
@@ -373,19 +407,19 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     if (dotNetType != null)
                         switch (dotNetType)
                         {
-                            case "string":
+                            case "string?":
                                 sb.AppendLine($"{member.Name} = \"Mocked value for {member.Name}\"");
                                 break;
-                            case nameof(DateTime):
+                            case "DateTime?":
                                 sb.AppendLine($"{member.Name} = DateTime.UtcNow");
                                 break;
-                            case "float":
+                            case "float?":
                                 sb.AppendLine($"{member.Name} = random.NextSingle()");
                                 break;
-                            case "bool":
+                            case "bool?":
                                 sb.AppendLine($"{member.Name} = random.NextDouble() > 0.5");
                                 break;
-                            case "int":
+                            case "int?":
                                 sb.AppendLine($"{member.Name} = random.Next()");
                                 break;
                             default:
@@ -399,7 +433,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
                     {
                         var targetName = member.Target.Split('#')[1];
                         sb.AppendLine($"{member.Name} = new {targetName} {{");
-                        SetMockOutput(model, sb, subStructure);
+                        SetMockProperties(model, sb, subStructure);
                         sb.AppendLine("}");
                     }
 
@@ -417,13 +451,13 @@ internal class CSharpCodeGenerator : ICodeGenerator
                             if (list.Target.StartsWith("smithy.api"))
                             {
                                 var simpleType = new SimpleType(list.Target);
-                                SetMockOutput(model, sb, simpleType);
+                                SetMockProperties(model, sb, simpleType);
                             }
                             else
                             {
                                 var listTarget = model.Shapes.Single(s => s.ShapeId == list.Target);
                                 sb.AppendLine($"new {listTarget.Name} {{");
-                                SetMockOutput(model, sb, listTarget);
+                                SetMockProperties(model, sb, listTarget);
                                 sb.AppendLine("}");
                             }
 
@@ -460,21 +494,24 @@ internal class CSharpCodeGenerator : ICodeGenerator
         formattedSummary += "/// </summary>";
         return formattedSummary;
     }
-
+    
 
     private static string GetDotNetTypeForSmithyType(string smithyType)
     {
+
+
         var map = new Dictionary<string, string>
         {
-            { "String", "string" },
-            { "Float", "float" },
-            { "Timestamp", "DateTime" },
-            { "Integer", "int" },
-            { "Boolean", "bool" }
+            { "String", "string?" },
+            { "Float", "float?" },
+            { "Timestamp", "DateTime?" },
+            { "Integer", "int?" },
+            { "Boolean", "bool?" }
         };
 
         if (!map.ContainsKey(smithyType))
             throw new Exception($"Could not find a .net mapping for smithy type: {smithyType}");
+        
         return map[smithyType];
     }
 
@@ -483,12 +520,12 @@ internal class CSharpCodeGenerator : ICodeGenerator
     {
         var map = new Dictionary<string, string>
         {
-            { "string", "string" },
-            { "boolean", "bool" },
-            { "document", "string" },
-            { "integer", "int" },
-            { "long", "long" },
-            { "bigDecimal", "decimal" }
+            { "string", "string?" },
+            { "boolean", "bool?" },
+            { "document", "string?" },
+            { "integer", "int?" },
+            { "long", "long?" },
+            { "bigDecimal", "decimal?" }
         };
         if (!map.ContainsKey(simpleType))
             throw new Exception($"Could not find a .net mapping for simple type: {simpleType}");

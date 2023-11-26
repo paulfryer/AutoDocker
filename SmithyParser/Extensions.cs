@@ -193,6 +193,7 @@ public static class Extensions
                         <TargetFramework>net6.0</TargetFramework>
                         <OutputType>Library</OutputType>
                         <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+						<Nullable>enable</Nullable>
                     </PropertyGroup>
                     <ItemGroup>
                         <Compile Include=""{smithy.Name}.cs"" />
