@@ -269,7 +269,7 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
             // Generate a mock.
             sb.AppendLine($"public class Mock{service.Name}Service : I{service.Name}Service {{");
-            sb.AppendLine("private readonly Random random = new Random();");
+            sb.AppendLine("private readonly Random random = new();");
             foreach (var operation in model.Operations.Where(s => s.Namespace == model.Name))
             {
                 var outputStructure = model.Structures.Single(s => s.ShapeId == operation.Output);
@@ -285,7 +285,9 @@ internal class CSharpCodeGenerator : ICodeGenerator
                 sb.AppendLine(
                     $"    public async Task<{outputStructure.Name}> {operation.Name}({inputStructure.Name} input) {{");
 
+                sb.AppendLine("// Simulate processing time.");
                 sb.AppendLine("await Task.Delay(random.Next(500));");
+                
                 sb.AppendLine($"var output = new {outputStructure.Name} {{");
 
                 SetMockOutput(model, sb, outputStructure);
