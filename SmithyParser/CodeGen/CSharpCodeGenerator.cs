@@ -330,8 +330,8 @@ internal class CSharpCodeGenerator : ICodeGenerator
 
             sb.AppendLine("}");
 
-            sb.AppendLine(
-                $"public class Mock{service.Name}ServiceTests : WeatherServiceTests<Mock{service.Name}Service> {{}}");
+            //sb.AppendLine(
+            //    $"public sealed class Mock{service.Name}ServiceTests : WeatherServiceTests<Mock{service.Name}Service> {{}}");
 
         }
 
