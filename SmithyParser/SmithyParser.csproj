@@ -24,6 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.Bedrock" Version="3.7.300.7" />
+    <PackageReference Include="AWSSDK.BedrockRuntime" Version="3.7.300.7" />
     <PackageReference Include="AWSSDK.CodeArtifact" Version="3.7.201.6" />
     <PackageReference Include="AWSSDK.SecurityToken" Version="3.7.201.44" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
