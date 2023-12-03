@@ -7,8 +7,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AutoDocker", "AutoDocker\Au
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Infrastructure", "Infrastructure\Infrastructure.csproj", "{69ABCD70-C04E-4A07-8102-052E40D365B2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SmithyParser", "SmithyParser\SmithyParser.csproj", "{D60DF304-3801-4B98-8602-A50A8351AD68}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,10 +21,6 @@ Global
 		{69ABCD70-C04E-4A07-8102-052E40D365B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{69ABCD70-C04E-4A07-8102-052E40D365B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{69ABCD70-C04E-4A07-8102-052E40D365B2}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D60DF304-3801-4B98-8602-A50A8351AD68}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D60DF304-3801-4B98-8602-A50A8351AD68}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D60DF304-3801-4B98-8602-A50A8351AD68}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D60DF304-3801-4B98-8602-A50A8351AD68}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

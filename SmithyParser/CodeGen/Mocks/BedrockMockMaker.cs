@@ -26,41 +26,42 @@ namespace SmithyParser.CodeGen.Mocks
     {
         IAmazonBedrock bedrock = new AmazonBedrockClient();
         private IAmazonBedrockRuntime bedrockRuntime = new AmazonBedrockRuntimeClient();
-        public async Task MakeMock()
+        public async Task MakeMock(string implementationPrompt, string interfaceToMock, string sourceCodeFile)
         {
+            var sourceCode = File.OpenText(sourceCodeFile).ReadToEnd();
+
+
+
 
             var body = new
             {
-                prompt = "\n\nHuman: Hello world\n\nAssistant:",
-                max_tokens_to_sample = 300,
+                prompt = $"\n\nHuman: Build an implementation of the {interfaceToMock} interface in C# as a class. {implementationPrompt}. Here is the code:\n\n{sourceCode}\n\nAssistant:",
+                max_tokens_to_sample = 2048,
                 temperature = 0.5,
                 top_k = 250,
                 top_p = 1,
-                stop_sequences = new[]
-                {
-                    "\n\nHuman:"
-                },
                 anthropic_version = "bedrock-2023-05-31"
             };
             var json = JsonConvert.SerializeObject(body);
-            var memoryStream = StringToMemoryStreamConverter.ConvertStringToMemoryStream(json);
+            var memoryStream = ConvertStringToMemoryStream(json);
 
 
             var resp = await bedrockRuntime.InvokeModelAsync(new InvokeModelRequest
             {
-                ModelId = "anthropic.claude-v2",
+                ModelId = "anthropic.claude-v2:1",
                 ContentType = "application/json",
                 Accept = "*/*",
                 Body = memoryStream
             });
 
+            var text = ConvertToString(resp.Body);
+
 
 
         }
 
-        public class StringToMemoryStreamConverter
-        {
-            public static MemoryStream ConvertStringToMemoryStream(string inputString)
+       
+            public MemoryStream ConvertStringToMemoryStream(string inputString)
             {
                 if (inputString == null)
                     throw new ArgumentNullException(nameof(inputString));
@@ -76,7 +77,22 @@ namespace SmithyParser.CodeGen.Mocks
 
                 return memoryStream;
             }
-        }
+        
+
+ 
+            public string ConvertToString(MemoryStream memoryStream)
+            {
+                if (memoryStream == null)
+                    throw new ArgumentNullException(nameof(memoryStream));
+
+                memoryStream.Position = 0; // Reset the position of MemoryStream to the beginning.
+
+                using (StreamReader reader = new StreamReader(memoryStream, Encoding.UTF8))
+                {
+                    return reader.ReadToEnd();
+                }
+            }
+        
 
     }
 }

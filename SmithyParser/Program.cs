@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using SmithyParser.CodeGen;
+using SmithyParser.CodeGen.Mocks;
 using SmithyParser.Models;
 using SmithyParser.Models.Types;
 
@@ -13,6 +14,13 @@ internal class Program
     private static string repositoryName = "Services";
 
     public static async Task Main(string[] args)
+    {
+        var mockMaker = new BedrockMockMaker();
+        mockMaker.MakeMock("Build the service against DynamoDB.", "IWeatherService", 
+            "C:\\Users\\Administrator\\source\\repos\\AutoDocker\\SmithyParser\\bin\\Debug\\net6.0\\dynamic-directory\\example.weather.cs").Wait();
+    }
+
+    public static async Task MainX(string[] args)
     {
         if (args.Length > 0)
             domain = args[0];
